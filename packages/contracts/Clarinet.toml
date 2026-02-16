@@ -1,0 +1,28 @@
+[project]
+name = "stxact-contracts"
+version = "1.0.0"
+description = "Clarity smart contracts for stxact trust & settlement fabric"
+authors = []
+telemetry = false
+
+[contracts.service-registry]
+path = "contracts/service-registry.clar"
+epoch = "2.5"
+
+[contracts.reputation-map]
+path = "contracts/reputation-map.clar"
+epoch = "2.5"
+
+[contracts.dispute-resolver]
+path = "contracts/dispute-resolver.clar"
+epoch = "2.5"
+
+[contracts.receipt-anchor]
+path = "contracts/receipt-anchor.clar"
+epoch = "2.5"
+
+[repl.analysis]
+passes = ["check_checker"]
+
+[repl.analysis.check_checker]
+strict = true

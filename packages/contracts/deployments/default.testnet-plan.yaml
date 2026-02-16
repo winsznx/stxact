@@ -1,0 +1,39 @@
+---
+id: 0
+name: Testnet deployment
+network: testnet
+stacks-node: "https://api.testnet.hiro.so"
+bitcoin-node: "http://blockstack:blockstacksystem@bitcoind.testnet.stacks.co:18332"
+plan:
+  batches:
+    - id: 0
+      transactions:
+        - contract-publish:
+            contract-name: dispute-resolver
+            expected-sender: ST31DP8F8CF2GXSZBHHHK5J6Y061744E1TP7FRGHT
+            cost: 75060
+            path: contracts/dispute-resolver.clar
+            anchor-block-only: true
+            clarity-version: 2
+        - contract-publish:
+            contract-name: receipt-anchor
+            expected-sender: ST31DP8F8CF2GXSZBHHHK5J6Y061744E1TP7FRGHT
+            cost: 43940
+            path: contracts/receipt-anchor.clar
+            anchor-block-only: true
+            clarity-version: 2
+        - contract-publish:
+            contract-name: reputation-map
+            expected-sender: ST31DP8F8CF2GXSZBHHHK5J6Y061744E1TP7FRGHT
+            cost: 103820
+            path: contracts/reputation-map.clar
+            anchor-block-only: true
+            clarity-version: 2
+        - contract-publish:
+            contract-name: service-registry
+            expected-sender: ST31DP8F8CF2GXSZBHHHK5J6Y061744E1TP7FRGHT
+            cost: 46440
+            path: contracts/service-registry.clar
+            anchor-block-only: true
+            clarity-version: 2
+      epoch: "2.5"

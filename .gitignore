@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+out/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sensitive keys and mnemonics
+*.pem
+*.key
+**/Devnet.toml
+**/Testnet.toml
+
+# Vercel
+.vercel
+
+# Agent/AI
+.claude/
+.gemini/
+.implementation_plan/
+
+# Test coverage
+coverage/
+
+# Misc
+*.tgz
+test-output-*
