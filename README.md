@@ -309,35 +309,159 @@ packages/
 
 ## Roadmap
 
-### Phase 1: Foundation (Done)
+### Guiding Constraints
+
+These boundaries are non-negotiable across all phases:
+
+- No custody. stxact does not hold user funds.
+- No pooled liquidity. No AMMs, no escrow pools, no bridge custody assumptions.
+- Receipts are canonical audit objects: payment proof, delivery commitment, dispute outcome, reputation effect.
+- On-chain state must be minimal and intentional: registry, stake bond, disputes, optional anchoring.
+- Off-chain infra must be replaceable. Verification must be independently reproducible.
+
+---
+
+### Phase 1 — Foundation (Done)
+
 - [x] 4 Clarity smart contracts deployed to testnet
 - [x] x402 payment gate middleware with replay protection
-- [x] Proxy server with receipt generation
+- [x] Proxy server with receipt generation and ECDSA signing
 - [x] Frontend dashboard with Leather wallet integration
-- [x] On-chain seller registration with 100 STX bond
-- [x] Live reputation score and key version display
-- [x] Dispute filing, acknowledgement, refund, and rejection
+- [x] On-chain seller registration with 100 STX stake bond
+- [x] Live reputation score and signing key version display
+- [x] Dispute filing, acknowledgement, refund, and rejection flows
 
-### Phase 2: Trust Hardening (In Progress)
-- [ ] Full delivery proof verification in the proxy (hash comparison on every response)
-- [ ] Receipt PDF/CSV export with audit bundles
-- [ ] Automatic reputation updates after each proxied request
-- [ ] BNS name resolution in the service directory
-- [ ] CLI tool (`stxact curl`, `stxact verify-receipt`, `stxact dispute`)
+---
 
-### Phase 3: Production
-- [ ] Mainnet contract deployment
-- [ ] PostgreSQL receipt store with archival
-- [ ] Rate limiting and abuse protection
-- [ ] Multi-token support (sBTC, USDA)
-- [ ] Webhook notifications for dispute events
+### Phase 2 — Protocol Completion and Backend Hardening
 
-### Phase 4: Ecosystem
-- [ ] Agent SDK for autonomous service consumption
-- [ ] Institutional audit export (SOC 2 compatible)
-- [ ] Cross-service reputation aggregation
-- [ ] Marketplace with reputation-weighted rankings
-- [ ] Governance for dispute arbitration thresholds
+Weeks 1–3. Close implementation gaps and ensure correctness before expanding scope.
+
+**Missing API Endpoints**
+- [ ] `GET /directory/services/:principal`
+- [ ] `GET /receipts`
+- [ ] `GET /disputes`
+- [ ] `PATCH /disputes/:id`
+- [ ] `GET /reputation/:principal`
+
+**Replay Protection**
+- [ ] Enforce `(payment_txid, request_hash)` uniqueness
+- [ ] Concurrent submission stress tests
+- [ ] Idempotency checks in service layer
+
+**Dispute Canonical Message Hardening**
+- [ ] Refund authorization binds: `dispute_id`, `amount`, buyer principal, seller principal, chain id, contract principal
+- [ ] Signature forgery test cases
+
+**Confirmation Handling**
+- [ ] Configurable confirmation depth
+- [ ] Shallow reorg test simulation
+- [ ] Graceful receipt verification failure on invalidated transactions
+
+Acceptance criteria: 85%+ test coverage, replay attack tests pass, dispute execution suite passes, end-to-end 402 flow validated, no 404 endpoints from frontend.
+
+---
+
+### Phase 3 — Trust Dashboard Finalization
+
+Weeks 4–7. Turn the frontend into a serious trust control panel.
+
+**Service Directory**
+- [ ] Service cards with: principal, BNS, stake bonded, reputation score, success rate, total deliveries, dispute count, anchored badge, supported tokens
+- [ ] Trust color coding: green (high reliability), yellow (moderate), red (risk exposure)
+
+**Service Detail Page**
+- [ ] Identity section: principal, BNS, registered block, stake amount, anchor status
+- [ ] Reputation graph: deliveries over time, disputes over time, refunds executed, success rate trend
+- [ ] Policy viewer: expandable JSON, SHA-256 hash, verified on-chain indicator
+- [ ] Transaction history: receipt ID, payment amount, delivery hash, refund if any, block height
+
+**Receipt Verification Matrix**
+- [ ] Replace raw JSON display with structured verification panel
+- [ ] Per-row checks: seller signature valid, address matches principal, payment confirmed, delivery hash match, key version valid, dispute status
+- [ ] Each row shows: status, data source (on-chain / off-chain), raw reference link
+
+**Dispute Timeline View**
+- [ ] Visual state progression: Created → Seller Response → Refund Executed → Reputation Updated
+- [ ] Display: refund TXID, block inclusion, evidence hash
+
+Acceptance criteria: full buyer flow demo (Directory → Pay → Receipt → Verify), full seller flow demo (Delivery → Dispute → Refund → Reputation update), all trust indicators backed by real data, no decorative charts.
+
+---
+
+### Phase 4 — Audit and Compliance Tooling
+
+Weeks 8–11. Position stxact for institutional and RWA alignment.
+
+**Audit Bundle Export**
+- [ ] Export per receipt: receipt JSON, signature payload, payment TX proof, delivery commitment, dispute record, reputation impact
+- [ ] Formats: JSON, CSV, signed archive
+
+**Bulk Export**
+- [ ] Pagination for 10k+ receipts
+- [ ] Streamed CSV generation
+- [ ] Memory-safe export process
+
+**SDK Layer**
+- [ ] Client SDK: x402 flow wrapper, automatic receipt verification, replay protection helpers
+- [ ] Server SDK: route wrapper middleware, canonical receipt builder, delivery commitment generator
+
+Acceptance criteria: export 10k receipts without memory crash, independent verifier script confirms bundle integrity, SDK demo app runs in under 15 lines of integration.
+
+---
+
+### Phase 5 — Sponsored Transactions Evaluation
+
+Weeks 12–13. Determine whether sponsored transactions fully solve gasless UX or if a standardization gap remains.
+
+- [ ] Evaluate sponsored transaction capabilities on Stacks
+- [ ] Document limitations: wallet support maturity, nonce semantics, developer friction
+- [ ] Simulate sponsor griefing scenarios
+- [ ] Test gas-sponsor economic sustainability
+- [ ] Whitepaper section: "Gasless x402 on Stacks Today"
+- [ ] Risk matrix for sponsored transaction model
+- [ ] Clear determination: SIP needed, or reference contract standard sufficient?
+
+---
+
+### Phase 6 — SIP Submission (If Required)
+
+Weeks 14–16. Standardize token authorization trait for SIP-010 if justified.
+
+SIP: "SIP-010 Authorized Transfer Trait" — minimal interface:
+- `transfer-with-authorization`
+- `cancel-authorization`
+- `get-authorization-status`
+
+Requirements: domain separation, nonce consumption tracking, expiry field, chain-id binding, contract principal binding.
+
+- [ ] Testnet reference implementation
+- [ ] Independent audit
+- [ ] Integration with x402 facilitator
+- [ ] Draft SIP submission via Zero Authority DAO portal
+- [ ] Community review period
+
+Acceptance criteria: SIP draft published, testnet deployment live, independent verification of signature logic, no liquidity assumptions introduced.
+
+---
+
+### Phase 7 — Mainnet Deployment
+
+Launch stxact infrastructure without expanding trust assumptions.
+
+- [ ] Registry contract deployed
+- [ ] Dispute contract deployed
+- [ ] Reputation contract deployed
+- [ ] Receipt anchoring enabled (optional)
+- [ ] Explorer links published
+- [ ] Independent verification script released
+
+**Long-Term Vision**
+- Service discovery reputation API standard
+- Cross-chain receipt format compatibility
+- Agent-native integration (x402 bots)
+- Institutional analytics dashboard
+- Multi-token trust indexing
 
 ## Docs
 
