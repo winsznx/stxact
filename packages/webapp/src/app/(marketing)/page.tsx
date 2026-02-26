@@ -213,6 +213,11 @@ export default function HomePage() {
                     GitHub
                   </a>
                 </div>
+                <div>
+                  <a href="https://x.com/stxact" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
+                    Twitter
+                  </a>
+                </div>
               </div>
             </div>
 
