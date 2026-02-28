@@ -1,91 +1,95 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { useReceipt } from '@/hooks/useReceipts';
-import {
-  Download,
-  ExternalLink,
-  Shield,
-  Copy,
-  Check,
-  ArrowLeft,
-  FileText,
-  Upload
-} from 'lucide-react';
+import { Download, ExternalLink, ArrowLeft, Copy, Check } from 'lucide-react';
 import Link from 'next/link';
+import { useReceipt } from '@/hooks/useReceipts';
+import { api, type VerificationChecks } from '@/lib/api';
 import { GlassPanel } from '@/components/GlassCard';
 import { VerificationRow } from '@/components/VerificationRow';
 import { EmptyState } from '@/components/EmptyState';
-import { useWallet } from '@/hooks/useWallet';
-import { openContractCall } from '@stacks/connect-react';
-import { bufferCV, standardPrincipalCV, PostConditionMode } from '@stacks/transactions';
-
-// Manual network definition to avoid import issues
-const STACKS_TESTNET = {
-  url: 'https://api.testnet.hiro.so',
-  chainId: 2147483648 // ChainID.Testnet
-};
 
 export default function ReceiptDetailPage() {
   const params = useParams();
   const receiptId = params.id as string;
   const { data: receipt, isLoading, error } = useReceipt(receiptId);
-  const { address: walletAddress } = useWallet();
+
   const [copied, setCopied] = useState('');
-  const [jsonInput, setJsonInput] = useState('');
-  const [showJsonInput, setShowJsonInput] = useState(false);
-  const [isAnchoring, setIsAnchoring] = useState(false);
+  const [checks, setChecks] = useState<VerificationChecks | null>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
-  const isSeller = walletAddress === receipt?.seller_principal;
+  useEffect(() => {
+    const runVerification = async () => {
+      if (!receipt) return;
+      try {
+        const result = await api.verifyReceipt(receipt);
+        setChecks(result.checks);
+      } catch (err) {
+        setVerifyError(err instanceof Error ? err.message : 'Verification failed');
+      }
+    };
+    runVerification();
+  }, [receipt]);
 
-  const anchorContractAddress = process.env.NEXT_PUBLIC_RECEIPT_ANCHOR?.split('.')[0] || 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM';
-  const anchorContractName = process.env.NEXT_PUBLIC_RECEIPT_ANCHOR?.split('.')[1] || 'receipt-anchor';
-
-  const handleAnchor = async () => {
-    if (!receipt) return;
-    setIsAnchoring(true);
-
-    try {
-      // Mock hash for demo purposes - in production this would be SHA256 of the receipt
-      const receiptHash = new Uint8Array(32).fill(1);
-
-      await openContractCall({
-        network: STACKS_TESTNET,
-        contractAddress: anchorContractAddress,
-        contractName: anchorContractName,
-        functionName: 'anchor-receipt',
-        functionArgs: [
-          bufferCV(receiptHash),
-          bufferCV(new TextEncoder().encode(receipt.receipt_id)),
-          standardPrincipalCV(receipt.seller_principal),
-          bufferCV(new TextEncoder().encode(receipt.payment_txid))
-        ],
-        postConditionMode: PostConditionMode.Allow,
-        onFinish: () => setIsAnchoring(false),
-        onCancel: () => setIsAnchoring(false),
-      });
-    } catch (err) {
-      console.error(err);
-      setIsAnchoring(true);
-    }
-  };
-
-  const handleCopy = async (text: string, field: string) => {
-    await navigator.clipboard.writeText(text);
+  const handleCopy = async (value: string, field: string) => {
+    await navigator.clipboard.writeText(value);
     setCopied(field);
-    setTimeout(() => setCopied(''), 2000);
+    setTimeout(() => setCopied(''), 1500);
   };
 
-  const handleVerifyJson = () => {
-    // TODO: Implement JSON verification logic
-    alert('JSON verification not yet implemented');
-  };
+  const verificationRows = useMemo(() => {
+    if (!checks) return [];
+    return [
+      {
+        label: 'Seller signature valid',
+        status: checks.signature_valid ? ('verified' as const) : ('failed' as const),
+        details: checks.signature_valid
+          ? 'Signature verified against seller principal'
+          : 'Signature verification failed',
+      },
+      {
+        label: 'Principal match',
+        status: checks.principal_match === false ? ('failed' as const) : ('verified' as const),
+        details: checks.principal_match === false ? 'Derived principal mismatch' : 'Principal check passed',
+      },
+      {
+        label: 'Payment confirmation',
+        status:
+          checks.payment_txid_confirmed === undefined
+            ? ('pending' as const)
+            : checks.payment_txid_confirmed
+              ? ('verified' as const)
+              : ('failed' as const),
+        details:
+          checks.payment_txid_confirmed === undefined
+            ? 'On-chain payment verification not requested'
+            : checks.payment_txid_confirmed
+              ? 'Payment tx confirmed'
+              : 'Payment tx verification failed',
+      },
+      {
+        label: 'BNS verification',
+        status:
+          checks.bns_verified === undefined
+            ? ('pending' as const)
+            : checks.bns_verified
+              ? ('verified' as const)
+              : ('failed' as const),
+        details:
+          checks.bns_verified === undefined
+            ? 'BNS verification not requested'
+            : checks.bns_verified
+              ? 'BNS ownership verified'
+              : 'BNS verification failed',
+      },
+    ];
+  }, [checks]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-7xl px-4 py-12">
+        <div className="mx-auto max-w-5xl px-4 py-12">
           <div className="glass animate-pulse h-96 rounded-none" />
         </div>
       </div>
@@ -95,15 +99,15 @@ export default function ReceiptDetailPage() {
   if (error || !receipt) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-7xl px-4 py-12">
+        <div className="mx-auto max-w-5xl px-4 py-12">
           <EmptyState
-            icon={Shield}
+            icon={Download}
             title="Receipt Not Found"
-            description="This receipt doesn't exist or could not be loaded."
+            description="This receipt could not be loaded."
             action={
               <Link
                 href="/receipts"
-                className="inline-flex items-center gap-2 rounded-none border border-accent bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90"
+                className="inline-flex items-center gap-2 rounded-none border border-accent bg-accent px-4 py-2 text-sm font-medium text-white"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Back to Receipts
@@ -115,438 +119,130 @@ export default function ReceiptDetailPage() {
     );
   }
 
-  // Verification logic
-  const verifications = [
-    {
-      label: 'Seller signature valid',
-      status: 'verified' as const,
-      details: `Signature verified using secp256k1 public key recovery. Signature: ${receipt.signature.slice(0, 32)}...`,
-    },
-    {
-      label: 'Derived address matches seller principal',
-      status: 'verified' as const,
-      details: `Recovered public key derives to ${receipt.seller_principal}. Address derivation follows Stacks principal encoding spec.`,
-    },
-    {
-      label: 'Payment confirmed on-chain',
-      status: 'verified' as const,
-      details: `Transaction ${receipt.payment_txid} confirmed at block height ${receipt.block_height}. Block hash: ${receipt.block_hash}`,
-    },
-    {
-      label: 'Amount verified',
-      status: 'verified' as const,
-      details: `Payment amount meets service policy threshold. Token contract validated on-chain.`,
-    },
-    {
-      label: 'Delivery proof hash matches commitment',
-      status: receipt.delivery_commitment ? ('verified' as const) : ('pending' as const),
-      details: receipt.delivery_commitment
-        ? `SHA-256 hash of delivery proof matches commitment: ${receipt.delivery_commitment}`
-        : 'No delivery commitment provided yet. Awaiting seller delivery.',
-    },
-    {
-      label: 'Key version valid (rotation safe)',
-      status: 'verified' as const,
-      details: `Key version ${receipt.key_version} is current. Revision ${receipt.revision} matches expected state. No key rotation detected.`,
-    },
-    {
-      label: 'Dispute status',
-      status: 'verified' as const,
-      details: 'No disputes filed against this receipt. Clean transaction history.',
-    },
-  ];
+  const chain = process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/receipts"
-            className="mb-4 inline-flex items-center gap-2 text-sm text-foreground-muted hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Back to Receipts
-          </Link>
+      <div className="mx-auto max-w-5xl px-4 py-12">
+        <Link
+          href="/receipts"
+          className="mb-6 inline-flex items-center gap-2 text-sm text-foreground-muted hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Receipts
+        </Link>
 
+        <GlassPanel className="mb-6">
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="mb-2 font-serif text-4xl font-bold">Receipt Verification</h1>
-              <p className="text-lg text-foreground-muted">
-                Cryptographic proof of payment • Deterministic verification
-              </p>
+              <h1 className="font-serif text-3xl font-bold">Receipt Verification</h1>
+              <p className="mt-1 text-foreground-muted">Canonical signed receipt with payment proof metadata</p>
             </div>
-
-            <div className="flex items-center gap-2">
+            <div className="flex gap-2">
               <a
-                href={`${process.env.NEXT_PUBLIC_API_URL}/receipts/${receiptId}/pdf`}
-                download
-                className="inline-flex items-center gap-2 rounded-none border border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-background-raised"
+                href={`${apiUrl}/receipts/${receiptId}/pdf`}
+                className="inline-flex items-center gap-2 rounded-none border border bg-background px-3 py-2 text-sm"
               >
                 <Download className="h-4 w-4" />
                 PDF
               </a>
               <a
-                href={`${process.env.NEXT_PUBLIC_API_URL}/receipts/${receiptId}/csv`}
-                download
-                className="inline-flex items-center gap-2 rounded-none border border bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-background-raised"
+                href={`${apiUrl}/receipts/${receiptId}/csv`}
+                className="inline-flex items-center gap-2 rounded-none border border bg-background px-3 py-2 text-sm"
               >
                 <Download className="h-4 w-4" />
                 CSV
               </a>
             </div>
           </div>
-        </div>
+        </GlassPanel>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Main Content */}
           <div className="space-y-6 lg:col-span-2">
-            {/* Paste & Verify */}
             <GlassPanel>
-              <div className="mb-4 flex items-start justify-between">
-                <div>
-                  <h2 className="mb-1 font-serif text-lg font-semibold">Paste & Verify</h2>
-                  <p className="text-xs text-foreground-muted">
-                    Verify a receipt by pasting its JSON payload
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowJsonInput(!showJsonInput)}
-                  className="flex items-center gap-2 rounded-none border border px-3 py-1 text-xs font-medium transition-colors hover:bg-background-raised"
-                >
-                  <Upload className="h-3 w-3" />
-                  {showJsonInput ? 'Hide' : 'Show'} Input
-                </button>
-              </div>
-
-              {showJsonInput && (
-                <div className="space-y-3">
-                  <textarea
-                    value={jsonInput}
-                    onChange={(e) => setJsonInput(e.target.value)}
-                    placeholder='{"receipt_id": "...", "signature": "...", ...}'
-                    className="w-full rounded-none border border bg-background p-3 font-mono text-xs transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                    rows={6}
-                  />
-                  <button
-                    onClick={handleVerifyJson}
-                    className="w-full rounded-none border border-accent bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent/90"
-                  >
-                    Verify JSON
-                  </button>
-                </div>
-              )}
-            </GlassPanel>
-
-            {/* Verification Matrix */}
-            <GlassPanel>
-              <div className="mb-4">
-                <h2 className="mb-1 font-serif text-lg font-semibold">Verification Matrix</h2>
-                <p className="text-xs text-foreground-muted">
-                  Deterministic cryptographic verification of all receipt components
-                </p>
-              </div>
-
+              <h2 className="mb-4 font-serif text-lg font-semibold">Verification Matrix</h2>
+              {verifyError && <p className="mb-3 text-sm text-error">{verifyError}</p>}
               <div className="overflow-hidden rounded-none border border bg-background">
-                {verifications.map((verification, index) => (
+                {verificationRows.map((row) => (
                   <VerificationRow
-                    key={index}
-                    label={verification.label}
-                    status={verification.status}
-                    details={verification.details}
-                    expandable={true}
+                    key={row.label}
+                    label={row.label}
+                    status={row.status}
+                    details={row.details}
+                    expandable
                   />
                 ))}
               </div>
-
-              <div className="mt-4 rounded-none border border-success bg-success/10 px-4 py-3">
-                <p className="text-xs font-semibold text-success">
-                  ✓ All verifications passed • Receipt is cryptographically valid
-                </p>
-              </div>
             </GlassPanel>
 
-            {/* Receipt Data */}
             <GlassPanel>
-              <h2 className="mb-4 font-serif text-lg font-semibold">Receipt Data</h2>
-
-              <div className="space-y-4">
-                {/* Receipt ID */}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground-subtle">
-                    Receipt ID
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 rounded-none border border bg-background px-3 py-2 font-mono text-xs">
-                      {receipt.receipt_id}
-                    </div>
-                    <button
-                      onClick={() => handleCopy(receipt.receipt_id, 'receipt_id')}
-                      className="rounded-none border border p-2 transition-colors hover:bg-background-raised"
-                    >
-                      {copied === 'receipt_id' ? (
-                        <Check className="h-4 w-4 text-success" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Payment Transaction */}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground-subtle">
-                    Payment Transaction
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={`https://explorer.hiro.so/txid/${receipt.payment_txid}?chain=mainnet`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 rounded-none border border bg-background px-3 py-2 font-mono text-xs text-accent hover:underline"
-                    >
-                      {receipt.payment_txid}
-                      <ExternalLink className="ml-1 inline h-3 w-3" />
-                    </a>
-                    <button
-                      onClick={() => handleCopy(receipt.payment_txid, 'payment_txid')}
-                      className="rounded-none border border p-2 transition-colors hover:bg-background-raised"
-                    >
-                      {copied === 'payment_txid' ? (
-                        <Check className="h-4 w-4 text-success" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Block Height & Timestamp */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-foreground-subtle">
-                      Block Height
-                    </label>
-                    <div className="rounded-none border border bg-background px-3 py-2 font-mono text-xs">
-                      {receipt.block_height.toLocaleString()}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-foreground-subtle">
-                      Timestamp
-                    </label>
-                    <div className="rounded-none border border bg-background px-3 py-2 text-xs">
-                      {new Date(receipt.timestamp * 1000).toLocaleString()}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Seller Principal */}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground-subtle">
-                    Seller Principal
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 rounded-none border border bg-background px-3 py-2 font-mono text-xs">
-                      {receipt.seller_principal}
-                    </div>
-                    <button
-                      onClick={() => handleCopy(receipt.seller_principal, 'seller')}
-                      className="rounded-none border border p-2 transition-colors hover:bg-background-raised"
-                    >
-                      {copied === 'seller' ? (
-                        <Check className="h-4 w-4 text-success" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Buyer Principal (if exists) */}
-                {receipt.buyer_principal && (
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-foreground-subtle">
-                      Buyer Principal
-                    </label>
+              <h2 className="mb-4 font-serif text-lg font-semibold">Receipt Fields</h2>
+              <div className="space-y-3 text-sm">
+                {[
+                  ['Receipt ID', receipt.receipt_id, 'receipt_id'],
+                  ['Payment TXID', receipt.payment_txid, 'payment_txid'],
+                  ['Seller Principal', receipt.seller_principal, 'seller'],
+                  ['Buyer Principal', receipt.buyer_principal || 'N/A', 'buyer'],
+                  ['Block Hash', receipt.block_hash, 'block_hash'],
+                  ['Signature', receipt.signature, 'signature'],
+                ].map(([label, value, key]) => (
+                  <div key={String(key)}>
+                    <p className="mb-1 text-xs text-foreground-subtle">{label}</p>
                     <div className="flex items-center gap-2">
-                      <div className="flex-1 rounded-none border border bg-background px-3 py-2 font-mono text-xs">
-                        {receipt.buyer_principal}
+                      <div className="flex-1 rounded-none border border bg-background px-3 py-2 font-mono text-xs break-all">
+                        {value}
                       </div>
                       <button
-                        onClick={() => handleCopy(receipt.buyer_principal!, 'buyer')}
-                        className="rounded-none border border p-2 transition-colors hover:bg-background-raised"
+                        onClick={() => handleCopy(String(value), String(key))}
+                        className="rounded-none border border p-2 hover:bg-background-raised"
                       >
-                        {copied === 'buyer' ? (
-                          <Check className="h-4 w-4 text-success" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
+                        {copied === key ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                       </button>
                     </div>
                   </div>
-                )}
-
-                {/* Signature */}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-foreground-subtle">
-                    Signature
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 truncate rounded-none border border bg-background px-3 py-2 font-mono text-xs">
-                      {receipt.signature}
-                    </div>
-                    <button
-                      onClick={() => handleCopy(receipt.signature, 'signature')}
-                      className="rounded-none border border p-2 transition-colors hover:bg-background-raised"
-                    >
-                      {copied === 'signature' ? (
-                        <Check className="h-4 w-4 text-success" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Key Version & Revision */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-foreground-subtle">
-                      Key Version
-                    </label>
-                    <div className="rounded-none border border bg-background px-3 py-2 font-mono text-xs">
-                      v{receipt.key_version}
-                    </div>
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-foreground-subtle">
-                      Revision
-                    </label>
-                    <div className="rounded-none border border bg-background px-3 py-2 font-mono text-xs">
-                      {receipt.revision}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Delivery Commitment (if exists) */}
-                {receipt.delivery_commitment && (
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-foreground-subtle">
-                      Delivery Commitment
-                    </label>
-                    <div className="truncate rounded-none border border bg-background px-3 py-2 font-mono text-xs">
-                      {receipt.delivery_commitment}
-                    </div>
-                  </div>
-                )}
-
-                {/* Policy Hash (if exists) */}
-                {receipt.service_policy_hash && (
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-foreground-subtle">
-                      Service Policy Hash
-                    </label>
-                    <div className="truncate rounded-none border border bg-background px-3 py-2 font-mono text-xs">
-                      {receipt.service_policy_hash}
-                    </div>
-                  </div>
-                )}
+                ))}
               </div>
             </GlassPanel>
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-6">
-            {/* Status Badge */}
             <GlassPanel>
-              <div className="mb-4 flex items-start gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-success bg-success/10">
-                  <Shield className="h-6 w-6 text-success" />
+              <h3 className="mb-4 font-serif text-lg font-semibold">Summary</h3>
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-foreground-subtle">Timestamp</span>
+                  <span>{new Date(receipt.timestamp * 1000).toLocaleString()}</span>
                 </div>
-                <div>
-                  <h3 className="font-serif text-lg font-semibold">Verified</h3>
-                  <p className="text-xs text-foreground-muted">
-                    {receipt.revision === 1 ? 'Delivery confirmed' : 'Payment confirmed'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="rounded-none border border bg-background p-3">
-                <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="text-foreground-subtle">Receipt ID</span>
-                  <span className="font-mono font-semibold">{receipt.receipt_id.slice(0, 8)}...</span>
-                </div>
-                <div className="mb-2 flex items-center justify-between text-xs">
+                <div className="flex justify-between">
                   <span className="text-foreground-subtle">Block Height</span>
-                  <span className="font-mono font-semibold">{receipt.block_height.toLocaleString()}</span>
+                  <span className="font-mono">{receipt.block_height}</span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-foreground-subtle">Key Version</span>
-                  <span className="font-mono font-semibold">v{receipt.key_version}</span>
+                <div className="flex justify-between">
+                  <span className="text-foreground-subtle">Revision</span>
+                  <span className="font-mono">{receipt.revision}</span>
                 </div>
               </div>
             </GlassPanel>
 
-            {/* Actions */}
             <GlassPanel>
-              <h3 className="mb-4 font-serif text-lg font-semibold">Actions</h3>
+              <h3 className="mb-4 font-serif text-lg font-semibold">Links</h3>
               <div className="space-y-2">
                 <Link
                   href={`/disputes/new?receipt_id=${receipt.receipt_id}`}
-                  className="block w-full rounded-none border border-error bg-error px-4 py-2 text-center text-sm font-medium text-white transition-colors hover:bg-error/90"
+                  className="block rounded-none border border px-3 py-2 text-sm hover:bg-background-raised"
                 >
                   File Dispute
                 </Link>
-
-                {isSeller && (
-                  <button
-                    onClick={handleAnchor}
-                    disabled={isAnchoring}
-                    className="flex w-full items-center justify-center gap-2 rounded-none border border-accent bg-accent/10 px-4 py-2 text-center text-sm font-medium text-accent transition-colors hover:bg-accent/20 disabled:opacity-50"
-                  >
-                    <Shield className="h-4 w-4" />
-                    {isAnchoring ? 'Broadcasting...' : 'Anchor on Blockchain'}
-                  </button>
-                )}
-
-                <button className="block w-full rounded-none border border px-4 py-2 text-center text-sm font-medium transition-colors hover:bg-background-raised">
-                  Export Audit Bundle
-                </button>
                 <a
-                  href={`https://explorer.hiro.so/txid/${receipt.payment_txid}?chain=mainnet`}
+                  href={`https://explorer.hiro.so/txid/${receipt.payment_txid}?chain=${chain}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex w-full items-center justify-center gap-2 rounded-none border border px-4 py-2 text-center text-sm font-medium transition-colors hover:bg-background-raised"
+                  className="flex items-center gap-2 rounded-none border border px-3 py-2 text-sm hover:bg-background-raised"
                 >
-                  View on Explorer
+                  View Payment TX
                   <ExternalLink className="h-4 w-4" />
                 </a>
-              </div>
-            </GlassPanel>
-
-            {/* Technical Details */}
-            <GlassPanel>
-              <h3 className="mb-4 font-serif text-lg font-semibold">Technical Details</h3>
-              <div className="space-y-3 text-xs">
-                <div>
-                  <p className="mb-1 text-foreground-subtle">Signature Algorithm</p>
-                  <p className="font-mono font-semibold">secp256k1</p>
-                </div>
-                <div>
-                  <p className="mb-1 text-foreground-subtle">Hash Algorithm</p>
-                  <p className="font-mono font-semibold">SHA-256</p>
-                </div>
-                <div>
-                  <p className="mb-1 text-foreground-subtle">Blockchain</p>
-                  <p className="font-mono font-semibold">Stacks (Bitcoin Layer 2)</p>
-                </div>
-                <div>
-                  <p className="mb-1 text-foreground-subtle">Block Hash</p>
-                  <p className="truncate font-mono text-xs text-foreground-muted">
-                    {receipt.block_hash}
-                  </p>
-                </div>
               </div>
             </GlassPanel>
           </div>

@@ -1,11 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { useCreateDispute } from '@/hooks/useDisputes';
 import { GlassPanel } from '@/components/GlassCard';
+import { useWallet } from '@/hooks/useWallet';
+import { signWithWallet } from '@/lib/signing';
 
 type DisputeReason =
   | 'delivery_hash_mismatch'
@@ -15,14 +17,17 @@ type DisputeReason =
 
 export default function NewDisputePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const createDispute = useCreateDispute();
+  const { address: walletAddress } = useWallet();
 
-  const [receiptId, setReceiptId] = useState('');
+  const [receiptId, setReceiptId] = useState(searchParams.get('receipt_id') || '');
   const [reason, setReason] = useState<DisputeReason>('delivery_hash_mismatch');
   const [expectedHash, setExpectedHash] = useState('');
   const [receivedHash, setReceivedHash] = useState('');
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [signWithWalletEnabled, setSignWithWalletEnabled] = useState(true);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,16 +35,26 @@ export default function NewDisputePage() {
 
     try {
       const evidence: Record<string, unknown> = { notes };
+      let buyerSignature: string | undefined;
+      let timestamp: number | undefined;
 
       if (reason === 'delivery_hash_mismatch') {
         evidence.expected_hash = expectedHash;
         evidence.received_hash = receivedHash;
       }
 
+      if (signWithWalletEnabled && walletAddress) {
+        timestamp = Math.floor(Date.now() / 1000);
+        const canonical = ['STXACT-DISPUTE', receiptId, reason, timestamp.toString()].join(':');
+        buyerSignature = await signWithWallet(canonical);
+      }
+
       await createDispute.mutateAsync({
         receipt_id: receiptId,
         reason,
         evidence,
+        buyer_signature: buyerSignature,
+        timestamp,
       });
 
       router.push('/disputes');
@@ -112,6 +127,16 @@ export default function NewDisputePage() {
                 <option value="fraudulent_quote">Fraudulent Quote</option>
               </select>
             </div>
+
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={signWithWalletEnabled}
+                onChange={(e) => setSignWithWalletEnabled(e.target.checked)}
+                className="h-4 w-4"
+              />
+              Sign dispute with connected wallet
+            </label>
 
             {reason === 'delivery_hash_mismatch' && (
               <>
