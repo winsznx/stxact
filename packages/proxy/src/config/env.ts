@@ -23,7 +23,7 @@ const envVarDefinitions: RequiredEnvVars = {
   PORT: {
     required: false,
     type: 'number',
-    defaultValue: 3000,
+    defaultValue: 3001,
     description: 'Server port',
   },
   NODE_ENV: {
@@ -130,6 +130,12 @@ const envVarDefinitions: RequiredEnvVars = {
     type: 'boolean',
     defaultValue: false,
     description: 'Enable optional receipt anchoring',
+  },
+  ENABLE_DEMO_ROUTES: {
+    required: false,
+    type: 'boolean',
+    defaultValue: false,
+    description: 'Enable demo-only API routes',
   },
   MIN_REPUTATION_AMOUNT: {
     required: false,
