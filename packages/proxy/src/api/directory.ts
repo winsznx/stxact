@@ -4,6 +4,7 @@ import { getPool } from '../storage/db';
 import { verifyBNSOwnership } from '../identity/bns';
 import { logger } from '../config/logger';
 import { getOnChainReputation } from '../utils/reputation';
+import { recoverPrincipalFromMessageSignature } from '../crypto/signatures';
 
 const router = Router();
 
@@ -16,62 +17,103 @@ const router = Router();
 router.get('/services', async (req: Request, res: Response) => {
   try {
     const minReputation = parseInt((req.query.min_reputation as string) || '0', 10);
-    const supportedToken = req.query.supported_token as string;
+    const supportedToken = (req.query.supported_token as string) || (req.query.token as string);
     const category = req.query.category as string;
     const limit = Math.min(parseInt((req.query.limit as string) || '50', 10), 200);
     const offset = parseInt((req.query.offset as string) || '0', 10);
 
     const pool = getPool();
 
-    let query = 'SELECT * FROM services WHERE active = true';
+    let query = `
+      SELECT
+        s.*,
+        COALESCE(receipt_stats.total_receipts, 0)::int AS total_receipts,
+        COALESCE(dispute_stats.total_disputes, 0)::int AS total_disputes,
+        COALESCE(receipt_stats.total_volume_sats, 0)::text AS db_total_volume
+      FROM services s
+      LEFT JOIN (
+        SELECT
+          seller_principal,
+          COUNT(*) AS total_receipts,
+          SUM(
+            CASE
+              WHEN COALESCE(metadata->>'price_sats', '') ~ '^[0-9]+$'
+                THEN (metadata->>'price_sats')::numeric
+              ELSE 0
+            END
+          ) AS total_volume_sats
+        FROM receipts
+        GROUP BY seller_principal
+      ) receipt_stats ON receipt_stats.seller_principal = s.principal
+      LEFT JOIN (
+        SELECT seller_principal, COUNT(*) AS total_disputes
+        FROM disputes
+        GROUP BY seller_principal
+      ) dispute_stats ON dispute_stats.seller_principal = s.principal
+      WHERE s.active = true
+    `;
     const values: any[] = [];
     let paramIndex = 1;
 
     // Apply filters
     if (category) {
-      query += ` AND category = $${paramIndex}`;
+      query += ` AND s.category = $${paramIndex}`;
       values.push(category);
       paramIndex++;
     }
 
     if (supportedToken) {
-      query += ` AND supported_tokens::text LIKE $${paramIndex}`;
+      query += ` AND s.supported_tokens::text LIKE $${paramIndex}`;
       values.push(`%${supportedToken}%`);
       paramIndex++;
     }
 
     // Order by registration date (most recent first)
-    query += ' ORDER BY registered_at DESC';
+    query += ' ORDER BY s.registered_at DESC';
 
-    // Pagination
-    query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-    values.push(limit, offset);
+    // Apply SQL pagination only when no on-chain min_reputation filter is requested.
+    // min_reputation depends on asynchronous on-chain reads, so we paginate after filtering.
+    if (minReputation <= 0) {
+      query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      values.push(limit, offset);
+    }
 
     const result = await pool.query(query, values);
 
-    // Get total count for pagination
-    let countQuery = 'SELECT COUNT(*) FROM services WHERE active = true';
-    const countValues: any[] = [];
-    let countParamIndex = 1;
+    let total = 0;
+    if (minReputation <= 0) {
+      // Get total count for pagination
+      let countQuery = 'SELECT COUNT(*) FROM services WHERE active = true';
+      const countValues: any[] = [];
+      let countParamIndex = 1;
 
-    if (category) {
-      countQuery += ` AND category = $${countParamIndex}`;
-      countValues.push(category);
-      countParamIndex++;
+      if (category) {
+        countQuery += ` AND category = $${countParamIndex}`;
+        countValues.push(category);
+        countParamIndex++;
+      }
+
+      if (supportedToken) {
+        countQuery += ` AND supported_tokens::text LIKE $${countParamIndex}`;
+        countValues.push(`%${supportedToken}%`);
+      }
+
+      const countResult = await pool.query(countQuery, countValues);
+      total = parseInt(countResult.rows[0].count, 10);
     }
-
-    if (supportedToken) {
-      countQuery += ` AND supported_tokens::text LIKE $${countParamIndex}`;
-      countValues.push(`%${supportedToken}%`);
-    }
-
-    const countResult = await pool.query(countQuery, countValues);
-    const total = parseInt(countResult.rows[0].count, 10);
 
     // Format services with on-chain reputation
     const services = await Promise.all(
       result.rows.map(async (row) => {
         const reputationData = await getOnChainReputation(row.principal);
+        const totalReceipts = Number(row.total_receipts || 0);
+        const totalDisputes = Number(row.total_disputes || 0);
+        const successRate =
+          totalReceipts > 0 ? Math.max(0, (totalReceipts - totalDisputes) / totalReceipts) : 1.0;
+        const totalVolume =
+          reputationData?.totalVolume && reputationData.totalVolume !== '0'
+            ? reputationData.totalVolume
+            : String(row.db_total_volume || '0');
 
         return {
           service_id: row.service_id,
@@ -86,11 +128,13 @@ router.get('/services', async (req: Request, res: Response) => {
           pricing: row.pricing,
           reputation: {
             score: reputationData?.score || 0,
-            success_rate: 1.0,
-            total_volume: reputationData?.totalVolume || '0',
+            success_rate: successRate,
+            total_volume: totalVolume,
           },
+          total_deliveries: totalReceipts,
+          total_disputes: totalDisputes,
           stake: {
-            amount_stx: (row.stake_amount / 1_000_000).toString(),
+            amount_stx: (Number(row.stake_amount || 0) / 1_000_000).toString(),
             bonded: row.active,
           },
           registered_at: row.registered_at,
@@ -104,10 +148,14 @@ router.get('/services', async (req: Request, res: Response) => {
         ? services.filter((s) => s.reputation.score >= minReputation)
         : services;
 
+    const paginatedServices =
+      minReputation > 0 ? filteredServices.slice(offset, offset + limit) : filteredServices;
+    const responseTotal = minReputation > 0 ? filteredServices.length : total;
+
     res.status(200).json({
-      services: filteredServices,
+      services: paginatedServices,
       pagination: {
-        total,
+        total: responseTotal,
         limit,
         offset,
       },
@@ -126,31 +174,59 @@ router.get('/services', async (req: Request, res: Response) => {
 
 /**
  * GET /directory/services/:principal
- * Get a single service by Stacks principal
+ * Get a single service by Stacks principal or BNS name
  */
 router.get('/services/:principal', async (req: Request, res: Response) => {
   try {
-    const { principal } = req.params;
+    const { principal: identifier } = req.params;
+    const isPrincipal = /^S[TP][0-9A-Z]{38,40}$/.test(identifier);
+    const isBnsName = /^[a-z0-9-]+\.btc$/i.test(identifier);
 
-    // Validate Stacks principal format (ST/SP + 38-40 chars alphanumeric)
-    if (!/^S[TP][0-9A-Z]{38,40}$/.test(principal)) {
+    if (!isPrincipal && !isBnsName) {
       res.status(400).json({
-        error: 'invalid_principal',
-        message: 'Invalid Stacks principal format',
+        error: 'invalid_service_identifier',
+        message: 'Identifier must be a valid Stacks principal or BNS name',
       });
       return;
     }
 
     const pool = getPool();
     const result = await pool.query(
-      'SELECT * FROM services WHERE principal = $1 AND active = true',
-      [principal]
+      `
+        SELECT
+          s.*,
+          COALESCE(receipt_stats.total_receipts, 0)::int AS total_receipts,
+          COALESCE(dispute_stats.total_disputes, 0)::int AS total_disputes,
+          COALESCE(receipt_stats.total_volume_sats, 0)::text AS db_total_volume
+        FROM services s
+        LEFT JOIN (
+          SELECT
+            seller_principal,
+            COUNT(*) AS total_receipts,
+            SUM(
+              CASE
+                WHEN COALESCE(metadata->>'price_sats', '') ~ '^[0-9]+$'
+                  THEN (metadata->>'price_sats')::numeric
+                ELSE 0
+              END
+            ) AS total_volume_sats
+          FROM receipts
+          GROUP BY seller_principal
+        ) receipt_stats ON receipt_stats.seller_principal = s.principal
+        LEFT JOIN (
+          SELECT seller_principal, COUNT(*) AS total_disputes
+          FROM disputes
+          GROUP BY seller_principal
+        ) dispute_stats ON dispute_stats.seller_principal = s.principal
+        WHERE (s.principal = $1 OR LOWER(s.bns_name) = LOWER($1)) AND s.active = true
+      `,
+      [identifier]
     );
 
     if (result.rows.length === 0) {
       res.status(404).json({
         error: 'service_not_found',
-        message: `Service with principal ${principal} not found`,
+        message: `Service with identifier ${identifier} not found`,
       });
       return;
     }
@@ -159,6 +235,15 @@ router.get('/services/:principal', async (req: Request, res: Response) => {
 
     // Query on-chain reputation
     const reputationData = await getOnChainReputation(service.principal);
+    const totalReceipts = Number(service.total_receipts || 0);
+    const totalDisputes = Number(service.total_disputes || 0);
+    const successRate =
+      totalReceipts > 0 ? Math.max(0, (totalReceipts - totalDisputes) / totalReceipts) : 1.0;
+    const totalVolume =
+      reputationData?.totalVolume && reputationData.totalVolume !== '0'
+        ? reputationData.totalVolume
+        : String(service.db_total_volume || '0');
+    const score = reputationData?.score || 0;
 
     res.status(200).json({
       principal: service.principal,
@@ -168,14 +253,25 @@ router.get('/services/:principal', async (req: Request, res: Response) => {
       policy_url: service.policy_url,
       category: service.category,
       supported_tokens: service.supported_tokens,
-      reputation_score: reputationData?.score || 0,
-      total_volume: reputationData?.totalVolume || '0',
-      registered_at: parseInt(service.registered_at, 10),
+      reputation_score: score,
+      total_volume: totalVolume,
+      reputation: {
+        score,
+        success_rate: successRate,
+        total_volume: totalVolume,
+      },
+      total_deliveries: totalReceipts,
+      total_disputes: totalDisputes,
+      stake: {
+        amount_stx: (Number(service.stake_amount || 0) / 1_000_000).toString(),
+        bonded: service.active,
+      },
+      registered_at: Math.floor(new Date(service.registered_at).getTime() / 1000),
     });
   } catch (error) {
-    logger.error('Failed to get service by principal', {
+    logger.error('Failed to get service by identifier', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      principal: req.params.principal,
+      identifier: req.params.principal,
     });
 
     res.status(500).json({
@@ -199,20 +295,90 @@ router.post('/register', async (req: Request, res: Response) => {
       bns_name,
       category,
       supported_tokens,
+      signature,
+      timestamp,
     } = req.body;
 
     // Validate required fields
-    if (!endpoint_url || !policy_hash || !category || !supported_tokens) {
+    if (!endpoint_url || !policy_hash || !category || !supported_tokens || !signature || !timestamp) {
       res.status(400).json({
         error: 'missing_fields',
-        message: 'Required fields: endpoint_url, policy_hash, category, supported_tokens',
+        message: 'Required fields: endpoint_url, policy_hash, category, supported_tokens, signature, timestamp',
       });
       return;
     }
 
-    // Extract seller principal from signature (simplified - in production, verify signature)
-    // For now, use SERVICE_PRINCIPAL from env
+    if (!Array.isArray(supported_tokens) || supported_tokens.length === 0) {
+      res.status(400).json({
+        error: 'invalid_supported_tokens',
+        message: 'supported_tokens must be a non-empty array',
+      });
+      return;
+    }
+
     const sellerPrincipal = process.env.SERVICE_PRINCIPAL!;
+    const normalizedPolicyHash = String(policy_hash).toLowerCase();
+    const parsedTimestamp = parseInt(String(timestamp), 10);
+
+    if (!Number.isFinite(parsedTimestamp) || parsedTimestamp <= 0) {
+      res.status(400).json({
+        error: 'invalid_timestamp',
+        message: 'timestamp must be a valid unix timestamp in seconds',
+      });
+      return;
+    }
+
+    const signatureMaxAge = parseInt(process.env.REGISTRATION_SIGNATURE_MAX_AGE_SECONDS || '900', 10);
+    const now = Math.floor(Date.now() / 1000);
+    if (Math.abs(now - parsedTimestamp) > signatureMaxAge) {
+      res.status(422).json({
+        error: 'signature_expired',
+        message: `Registration signature timestamp is outside the allowed ${signatureMaxAge}s window`,
+      });
+      return;
+    }
+
+    if (!/^[0-9a-f]{64}$/.test(normalizedPolicyHash)) {
+      res.status(400).json({
+        error: 'invalid_policy_hash',
+        message: 'policy_hash must be a 64-character lowercase hex string',
+      });
+      return;
+    }
+
+    let normalizedEndpointUrl: string;
+    try {
+      normalizedEndpointUrl = new URL(endpoint_url).toString();
+    } catch {
+      res.status(400).json({
+        error: 'invalid_endpoint_url',
+        message: 'endpoint_url must be a valid URL',
+      });
+      return;
+    }
+
+    const endpointUrlHash = createHash('sha256').update(normalizedEndpointUrl).digest('hex');
+    const canonicalRegistrationMessage = [
+      'STXACT-REGISTER',
+      endpointUrlHash,
+      normalizedPolicyHash,
+      bns_name || '',
+      parsedTimestamp.toString(),
+    ].join(':');
+
+    const recoveredPrincipal = recoverPrincipalFromMessageSignature(
+      canonicalRegistrationMessage,
+      signature,
+      sellerPrincipal
+    );
+
+    if (!recoveredPrincipal || recoveredPrincipal !== sellerPrincipal) {
+      res.status(422).json({
+        error: 'invalid_signature',
+        message: 'Registration signature is invalid or does not match configured service principal',
+      });
+      return;
+    }
 
     // Verify BNS name ownership if provided
     if (bns_name) {
@@ -229,7 +395,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
     // Verify policy hash matches policy URL
     if (req.body.policy_url) {
-      const policyVerified = await verifyPolicyHash(req.body.policy_url, policy_hash);
+      const policyVerified = await verifyPolicyHash(req.body.policy_url, normalizedPolicyHash);
 
       if (!policyVerified) {
         res.status(422).json({
@@ -268,14 +434,14 @@ router.post('/register', async (req: Request, res: Response) => {
     const insertValues = [
       sellerPrincipal,
       bns_name || null,
-      endpoint_url,
-      policy_hash,
+      normalizedEndpointUrl,
+      normalizedPolicyHash,
       req.body.policy_url || null,
       category,
       req.body.tags || [],
-      JSON.stringify(supported_tokens),
-      req.body.pricing ? JSON.stringify(req.body.pricing) : null,
-      Math.floor(Date.now() / 1000), // Current timestamp in seconds
+      supported_tokens,
+      req.body.pricing || null,
+      new Date(),
       100_000_000, // Default stake: 100 STX
       true,
     ];
@@ -295,7 +461,7 @@ router.post('/register', async (req: Request, res: Response) => {
       makeContractCall,
       broadcastTransaction,
       stringAsciiCV,
-      bufferCVFromString,
+      bufferCV,
       someCV,
       noneCV,
       uintCV,
@@ -325,8 +491,8 @@ router.post('/register', async (req: Request, res: Response) => {
       contractName,
       functionName: 'register-service',
       functionArgs: [
-        stringAsciiCV(endpoint_url),
-        bufferCVFromString(policy_hash),
+        bufferCV(Buffer.from(endpointUrlHash, 'hex')),
+        bufferCV(Buffer.from(normalizedPolicyHash, 'hex')),
         bns_name ? someCV(stringAsciiCV(bns_name)) : noneCV(),
         uintCV(100_000_000), // stake_amount: 100 STX default
       ],
@@ -356,7 +522,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
       res.status(500).json({
         error: 'registration_broadcast_failed',
-        message: 'Service registered in database but blockchain transaction failed',
+        message: 'Blockchain registration transaction failed; service registration was rolled back',
         details: broadcastResponse.reason || broadcastResponse.error,
       });
       return;
