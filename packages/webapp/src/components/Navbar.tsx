@@ -4,15 +4,28 @@ import Link from 'next/link';
 import { Moon, Sun, Menu, X } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { usePathname } from 'next/navigation';
+import type { NavItem } from '@/lib/navigation';
 
 const WalletButton = dynamic(
   () => import('./WalletButton').then((mod) => ({ default: mod.WalletButton })),
   { ssr: false }
 );
 
-export function Navbar() {
+interface NavbarProps {
+  links?: NavItem[];
+  showDesktopLinks?: boolean;
+  showWalletButton?: boolean;
+}
+
+export function Navbar({
+  links = [],
+  showDesktopLinks = true,
+  showWalletButton = true,
+}: NavbarProps) {
   const { theme, setTheme } = useTheme();
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -20,6 +33,22 @@ export function Navbar() {
     // Intentional: Prevents SSR hydration mismatch with theme toggle
     setMounted(true);
   }, []);
+
+  const activeHref = useMemo(() => {
+    if (!pathname) return '';
+    const sortedLinks = [...links].sort((a, b) => b.href.length - a.href.length);
+    const match = sortedLinks.find(
+      ({ href }) => pathname === href || (href !== '/' && pathname.startsWith(`${href}/`))
+    );
+    return match?.href || '';
+  }, [links, pathname]);
+
+  const hasMobileMenu = links.length > 0 || showWalletButton;
+  const mobileMenuVisibilityClass = showDesktopLinks ? 'md:hidden' : 'lg:hidden';
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   return (
     <nav className="sticky top-0 z-50 border-b border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -36,10 +65,24 @@ export function Navbar() {
             </span>
           </Link>
 
-          {/* Desktop Navigation - Removed (Redundant with Sidebar) */}
-          <div className="hidden md:flex md:items-center md:gap-8">
-            {/* Space reserved for future breadcrumbs or title */}
-          </div>
+          {/* Desktop Navigation */}
+          {showDesktopLinks && links.length > 0 && (
+            <div className="hidden md:flex md:items-center md:gap-6">
+              {links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`border-b-2 pb-1 text-sm font-medium transition-colors ${
+                    activeHref === link.href
+                      ? 'border-accent text-foreground'
+                      : 'border-transparent text-foreground-muted hover:border-accent/50 hover:text-foreground'
+                  }`}
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center gap-3">
@@ -59,28 +102,54 @@ export function Navbar() {
             )}
 
             {/* Wallet Button - Visible on desktop/tablet */}
-            <div className="hidden sm:block">
-              <WalletButton />
-            </div>
+            {showWalletButton && (
+              <div className="hidden sm:block">
+                <WalletButton />
+              </div>
+            )}
 
             {/* Mobile Menu Button - Visible on mobile */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="rounded-none border border p-2 transition-colors hover:border-accent hover:bg-background-raised sm:hidden"
-              aria-label="Toggle menu"
-            >
-              {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-            </button>
+            {hasMobileMenu && (
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className={`rounded-none border border p-2 transition-colors hover:border-accent hover:bg-background-raised ${mobileMenuVisibilityClass}`}
+                aria-label="Toggle menu"
+                aria-expanded={mobileMenuOpen}
+              >
+                {mobileMenuOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Mobile Menu - Contains only Wallet Button now */}
-        {mobileMenuOpen && (
-          <div className="animate-fade-in border-t border py-4 sm:hidden">
+        {/* Mobile Menu */}
+        {mobileMenuOpen && hasMobileMenu && (
+          <div className={`animate-fade-in border-t border py-4 ${mobileMenuVisibilityClass}`}>
             <div className="flex flex-col gap-4">
-              <div className="border-t border pt-4">
-                <WalletButton />
-              </div>
+              {links.length > 0 && (
+                <div className="space-y-2">
+                  {links.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`block rounded-none border px-3 py-2 text-sm font-medium transition-colors ${
+                        activeHref === link.href
+                          ? 'border-accent bg-background-raised text-foreground'
+                          : 'border-transparent text-foreground-muted hover:border-accent/50 hover:bg-background-raised'
+                      }`}
+                    >
+                      {link.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {showWalletButton && (
+                <div className={links.length > 0 ? 'border-t border pt-4' : ''}>
+                  <WalletButton />
+                </div>
+              )}
             </div>
           </div>
         )}

@@ -18,6 +18,62 @@ import { StacksNetwork } from '@stacks/network';
 import { Receipt, generateReceiptCanonicalMessage } from './receipt-canonical';
 import { logger } from '../config/logger';
 
+function getAddressVersionForPrincipal(principal: string): AddressVersion {
+  if (principal.startsWith('SP')) {
+    return AddressVersion.MainnetSingleSig;
+  }
+
+  if (principal.startsWith('ST')) {
+    return AddressVersion.TestnetSingleSig;
+  }
+
+  throw new Error(`Unsupported principal prefix: ${principal}`);
+}
+
+function recoverPrincipalFromSignature(
+  messageHashHex: string,
+  signatureBase64: string,
+  principalHint?: string
+): string {
+  const signatureBuffer = Buffer.from(signatureBase64, 'base64');
+  const publicKeyHex = publicKeyFromSignatureRsv(
+    messageHashHex,
+    { type: StacksMessageType.MessageSignature, data: signatureBuffer.toString('hex') }
+  );
+  const publicKey = createStacksPublicKey(publicKeyHex);
+
+  const addressVersion = principalHint
+    ? getAddressVersionForPrincipal(principalHint)
+    : (process.env.STACKS_NETWORK === 'mainnet'
+      ? AddressVersion.MainnetSingleSig
+      : AddressVersion.TestnetSingleSig);
+
+  const derivedAddress = addressFromPublicKeys(
+    addressVersion,
+    AddressHashMode.SerializeP2PKH,
+    1,
+    [publicKey]
+  );
+
+  return addressToString(derivedAddress);
+}
+
+export function recoverPrincipalFromMessageSignature(
+  canonicalMessage: string,
+  signatureBase64: string,
+  principalHint?: string
+): string | null {
+  try {
+    const msgHash = createHash('sha256').update(canonicalMessage).digest('hex');
+    return recoverPrincipalFromSignature(msgHash, signatureBase64, principalHint);
+  } catch (error) {
+    logger.warn('Failed to recover principal from message signature', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+    return null;
+  }
+}
+
 /**
  * Sign a receipt using Stacks ECDSA private key
  *
@@ -66,24 +122,11 @@ export async function verifyReceipt(
   try {
     const canonicalMsg = generateReceiptCanonicalMessage(receipt);
     const msgHash = createHash('sha256').update(canonicalMsg).digest('hex');
-    const signatureBuffer = Buffer.from(receipt.signature || '', 'base64');
-
-    // publicKeyFromSignatureRsv expects: (messageHash, messageSignature, pubKeyEncoding)
-    const publicKeyHex = publicKeyFromSignatureRsv(
+    const derivedPrincipal = recoverPrincipalFromSignature(
       msgHash,
-      { type: StacksMessageType.MessageSignature, data: signatureBuffer.toString('hex') }
+      receipt.signature || '',
+      receipt.seller_principal
     );
-
-    const publicKey = createStacksPublicKey(publicKeyHex);
-
-    const derivedAddress = addressFromPublicKeys(
-      AddressVersion.MainnetSingleSig,
-      AddressHashMode.SerializeP2PKH,
-      1,
-      [publicKey]
-    );
-
-    const derivedPrincipal = addressToString(derivedAddress);
 
     if (derivedPrincipal !== receipt.seller_principal) {
       logger.warn('Receipt signature verification failed: principal mismatch', {
@@ -114,8 +157,20 @@ export async function verifyReceipt(
         });
 
         if (keyVersionResult.type === ClarityType.ResponseOk) {
-          const onChainKeyData = cvToJSON(keyVersionResult.value);
-          const onChainKeyVersion = onChainKeyData?.value?.['key-version']?.value;
+          if (keyVersionResult.value.type === ClarityType.OptionalNone) {
+            return true;
+          }
+
+          if (keyVersionResult.value.type !== ClarityType.OptionalSome) {
+            logger.warn('Unexpected key version response type', {
+              receipt_id: receipt.receipt_id,
+              response_type: keyVersionResult.value.type,
+            });
+            return false;
+          }
+
+          const onChainKeyData = cvToJSON(keyVersionResult.value.value) as any;
+          const onChainKeyVersion = parseInt(onChainKeyData?.value?.['key-version']?.value || '0', 10);
 
           if (receipt.key_version > onChainKeyVersion) {
             logger.warn('Receipt claims future key version that does not exist', {
@@ -209,24 +264,11 @@ export function verifyRefundAuthorization(refund: RefundAuthorization): string |
     ].join(':');
 
     const msgHash = createHash('sha256').update(canonicalMsg).digest('hex');
-    const signatureBuffer = Buffer.from(refund.signature, 'base64');
-
-    // publicKeyFromSignatureRsv expects: (messageHash, messageSignature, pubKeyEncoding)
-    const publicKeyHex = publicKeyFromSignatureRsv(
+    const recoveredPrincipal = recoverPrincipalFromSignature(
       msgHash,
-      { type: StacksMessageType.MessageSignature, data: signatureBuffer.toString('hex') }
+      refund.signature,
+      refund.seller_principal
     );
-
-    const publicKey = createStacksPublicKey(publicKeyHex);
-
-    const derivedAddress = addressFromPublicKeys(
-      AddressVersion.MainnetSingleSig,
-      AddressHashMode.SerializeP2PKH,
-      1,
-      [publicKey]
-    );
-
-    const recoveredPrincipal = addressToString(derivedAddress);
 
     if (recoveredPrincipal !== refund.seller_principal) {
       logger.warn('Refund authorization signature mismatch', {

@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS services (
     registered_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 
-    CONSTRAINT valid_category CHECK (category IN ('data-api', 'ai-compute', 'storage', 'analytics', 'oracle', 'other'))
+    CONSTRAINT valid_category CHECK (category IN ('data-api', 'ai-compute', 'storage', 'analytics', 'oracle', 'yield', 'other'))
 );
 
 CREATE INDEX idx_services_principal ON services(principal);
@@ -44,8 +44,15 @@ CREATE TABLE IF NOT EXISTS receipts (
     key_version INTEGER NOT NULL DEFAULT 1,
     revision INTEGER NOT NULL DEFAULT 0,
     service_policy_hash TEXT,
+    metadata JSONB,
     signature TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT receipts_timestamp_positive CHECK (timestamp > 0),
+    CONSTRAINT receipts_block_height_positive CHECK (block_height > 0),
+    CONSTRAINT receipts_key_version_nonnegative CHECK (key_version >= 0),
+    CONSTRAINT receipts_revision_nonnegative CHECK (revision >= 0),
 
     FOREIGN KEY (seller_principal) REFERENCES services(principal) ON DELETE CASCADE
 );
@@ -55,6 +62,18 @@ CREATE INDEX idx_receipts_buyer ON receipts(buyer_principal);
 CREATE INDEX idx_receipts_payment_txid ON receipts(payment_txid);
 CREATE INDEX idx_receipts_timestamp ON receipts(timestamp DESC);
 CREATE INDEX idx_receipts_block_height ON receipts(block_height DESC);
+CREATE INDEX idx_receipts_created_at ON receipts(created_at DESC);
+CREATE UNIQUE INDEX idx_receipts_request_payment ON receipts(request_hash, payment_txid);
+
+-- Replay Protection Table (permanent payment binding, no TTL)
+CREATE TABLE IF NOT EXISTS used_payments (
+    payment_txid TEXT PRIMARY KEY,
+    request_hash TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_used_payments_created_at ON used_payments(created_at DESC);
+CREATE INDEX idx_used_payments_request_hash ON used_payments(request_hash);
 
 -- Disputes Table
 CREATE TABLE IF NOT EXISTS disputes (
@@ -83,6 +102,46 @@ CREATE INDEX idx_disputes_buyer ON disputes(buyer_principal);
 CREATE INDEX idx_disputes_seller ON disputes(seller_principal);
 CREATE INDEX idx_disputes_status ON disputes(status);
 CREATE INDEX idx_disputes_created_at ON disputes(created_at DESC);
+
+-- Reputation Event Audit Table
+CREATE TABLE IF NOT EXISTS reputation_events (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    seller_principal TEXT NOT NULL,
+    receipt_id TEXT NOT NULL,
+    payment_amount TEXT NOT NULL,
+    event_type TEXT NOT NULL,
+    txid TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+
+    FOREIGN KEY (seller_principal) REFERENCES services(principal) ON DELETE CASCADE,
+    FOREIGN KEY (receipt_id) REFERENCES receipts(receipt_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_reputation_events_seller ON reputation_events(seller_principal);
+CREATE INDEX idx_reputation_events_receipt ON reputation_events(receipt_id);
+CREATE INDEX idx_reputation_events_created_at ON reputation_events(created_at DESC);
+
+-- Refund Authorization Audit Table
+CREATE TABLE IF NOT EXISTS refund_authorizations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    dispute_id UUID NOT NULL UNIQUE,
+    receipt_id TEXT NOT NULL,
+    refund_amount TEXT NOT NULL,
+    buyer_principal TEXT NOT NULL,
+    seller_principal TEXT NOT NULL,
+    timestamp BIGINT NOT NULL,
+    signature TEXT NOT NULL,
+    verified BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+
+    FOREIGN KEY (dispute_id) REFERENCES disputes(dispute_id) ON DELETE CASCADE,
+    FOREIGN KEY (receipt_id) REFERENCES receipts(receipt_id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_refund_authorizations_receipt ON refund_authorizations(receipt_id);
+CREATE INDEX idx_refund_authorizations_seller ON refund_authorizations(seller_principal);
+CREATE INDEX idx_refund_authorizations_created_at ON refund_authorizations(created_at DESC);
 
 -- Reputation Cache Table (derived from on-chain data)
 CREATE TABLE IF NOT EXISTS reputation_cache (
@@ -155,6 +214,16 @@ CREATE TRIGGER services_updated_at
 
 CREATE TRIGGER disputes_updated_at
     BEFORE UPDATE ON disputes
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER receipts_updated_at
+    BEFORE UPDATE ON receipts
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at();
+
+CREATE TRIGGER refund_authorizations_updated_at
+    BEFORE UPDATE ON refund_authorizations
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at();
 

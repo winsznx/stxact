@@ -129,6 +129,7 @@ class NonceManager {
 
       const state = this.state.get(address);
       if (state) {
+        const previousNextNonce = state.nextNonce;
         // Use max of on-chain nonce and our tracked nonce
         const newNonce = onChainNonce > state.nextNonce ? onChainNonce : state.nextNonce;
 
@@ -141,8 +142,8 @@ class NonceManager {
 
         state.nextNonce = newNonce;
         state.lastSyncBlock = Date.now();
-        // Clear pending if we're resetting to on-chain state
-        if (onChainNonce > state.nextNonce) {
+        // Clear pending if chain nonce advanced past our previous local watermark.
+        if (onChainNonce > previousNextNonce) {
           state.pending.clear();
         }
       }

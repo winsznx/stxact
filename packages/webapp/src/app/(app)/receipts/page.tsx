@@ -1,22 +1,15 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useReceipts } from '@/hooks/useReceipts';
 import { FileCheck, Download, AlertCircle, ChevronDown } from 'lucide-react';
 import Link from 'next/link';
-import { getWalletData } from '@/lib/wallet';
+import { useWallet } from '@/hooks/useWallet';
 import type { Receipt } from '@/lib/api';
 
 export default function ReceiptsPage() {
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const { address: walletAddress } = useWallet();
   const [filter, setFilter] = useState<'all' | 'seller' | 'buyer'>('all');
-
-  useEffect(() => {
-    const walletData = getWalletData();
-    if (walletData) {
-      setWalletAddress(walletData.address);
-    }
-  }, []);
 
   const { data, isLoading, error } = useReceipts({
     seller_principal: filter === 'seller' ? walletAddress || undefined : undefined,
@@ -98,19 +91,27 @@ export default function ReceiptsPage() {
               </button>
             </div>
 
-            <button
-              onClick={() => {
-                const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-                const params = new URLSearchParams();
-                if (filter === 'seller' && walletAddress) params.set('seller_principal', walletAddress);
-                if (filter === 'buyer' && walletAddress) params.set('buyer_principal', walletAddress);
-                window.open(`${apiUrl}/receipts/export/csv?${params}`, '_blank');
-              }}
-              className="inline-flex items-center gap-2 rounded-none border border px-4 py-2 text-sm font-medium transition-colors hover:border-accent hover:bg-background-overlay"
-            >
-              <Download className="h-4 w-4" />
-              Export All
-            </button>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/receipts/verify"
+                className="inline-flex items-center gap-2 rounded-none border border px-4 py-2 text-sm font-medium transition-colors hover:border-accent hover:bg-background-overlay"
+              >
+                Verify JSON
+              </Link>
+              <button
+                onClick={() => {
+                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+                  const params = new URLSearchParams();
+                  if (filter === 'seller' && walletAddress) params.set('seller_principal', walletAddress);
+                  if (filter === 'buyer' && walletAddress) params.set('buyer_principal', walletAddress);
+                  window.open(`${apiUrl}/receipts?${params}`, '_blank');
+                }}
+                className="inline-flex items-center gap-2 rounded-none border border px-4 py-2 text-sm font-medium transition-colors hover:border-accent hover:bg-background-overlay"
+              >
+                <Download className="h-4 w-4" />
+                Export All
+              </button>
+            </div>
           </div>
         </div>
 
@@ -233,7 +234,7 @@ function ReceiptRow({ receipt }: { receipt: Receipt }) {
 
             <div className="flex items-center gap-4 font-mono text-sm text-foreground-muted">
               <span>Block: {receipt.block_height}</span>
-              <span>•</span>
+              <span>-</span>
               <span>{new Date(receipt.timestamp * 1000).toLocaleDateString()}</span>
             </div>
           </div>

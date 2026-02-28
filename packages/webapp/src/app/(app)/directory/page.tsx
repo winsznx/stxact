@@ -1,44 +1,89 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Search, Copy, Check, Shield, Coins } from 'lucide-react';
 import { useServices } from '@/hooks/useServices';
 import Link from 'next/link';
 import type { Service, Token } from '@/lib/api';
 import { TrustBadge } from '@/components/TrustBadge';
 import { EmptyState } from '@/components/EmptyState';
+import {
+  getServiceDeliveries,
+  getServiceDisputes,
+  getServiceScore,
+  getServiceStakeStx,
+  getServiceTotalVolume,
+} from '@/lib/service-utils';
+
+type SortKey = 'reputation_desc' | 'deliveries_desc' | 'registered_desc';
 
 export default function DirectoryPage() {
   const [category, setCategory] = useState<string>('');
   const [token, setToken] = useState<string>('');
   const [search, setSearch] = useState<string>('');
   const [trustFilter, setTrustFilter] = useState<string>('');
+  const [minReputationInput, setMinReputationInput] = useState<string>('');
+  const [sortBy, setSortBy] = useState<SortKey>('reputation_desc');
+
+  const minReputation = Number.isFinite(Number(minReputationInput))
+    ? Math.max(0, Number(minReputationInput))
+    : 0;
 
   const { data, isLoading, error } = useServices({
     category: category || undefined,
     token: token || undefined,
+    min_reputation: minReputation > 0 ? minReputation : undefined,
     limit: 50,
   });
 
-  const filteredServices = data?.services.filter((service) => {
-    const matchesSearch =
-      !search ||
-      service.principal.toLowerCase().includes(search.toLowerCase()) ||
-      service.bns_name?.toLowerCase().includes(search.toLowerCase());
+  const filteredServices = useMemo(() => {
+    const services = data?.services || [];
 
-    const matchesTrust =
-      !trustFilter ||
-      (trustFilter === 'anchored' && service.reputation_score >= 80) ||
-      (trustFilter === 'database' && service.reputation_score >= 40 && service.reputation_score < 80) ||
-      (trustFilter === 'risk' && service.reputation_score < 40);
+    const filtered = services.filter((service) => {
+      const matchesSearch =
+        !search ||
+        service.principal.toLowerCase().includes(search.toLowerCase()) ||
+        service.bns_name?.toLowerCase().includes(search.toLowerCase());
 
-    return matchesSearch && matchesTrust;
-  });
+      const score = getServiceScore(service);
+      const matchesTrust =
+        !trustFilter ||
+        (trustFilter === 'anchored' && score >= 80) ||
+        (trustFilter === 'database' && score >= 40 && score < 80) ||
+        (trustFilter === 'risk' && score < 40);
+
+      return matchesSearch && matchesTrust;
+    });
+
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      if (sortBy === 'reputation_desc') {
+        return getServiceScore(b) - getServiceScore(a);
+      }
+
+      if (sortBy === 'deliveries_desc') {
+        return getServiceDeliveries(b) - getServiceDeliveries(a);
+      }
+
+      const aTs =
+        typeof a.registered_at === 'number'
+          ? a.registered_at
+          : Math.floor(new Date(a.registered_at).getTime() / 1000) || 0;
+      const bTs =
+        typeof b.registered_at === 'number'
+          ? b.registered_at
+          : Math.floor(new Date(b.registered_at).getTime() / 1000) || 0;
+      return bTs - aTs;
+    });
+
+    return sorted;
+  }, [data?.services, search, sortBy, trustFilter]);
 
   const trustCounts = {
-    anchored: data?.services.filter((s) => s.reputation_score >= 80).length || 0,
-    database: data?.services.filter((s) => s.reputation_score >= 40 && s.reputation_score < 80).length || 0,
-    risk: data?.services.filter((s) => s.reputation_score < 40).length || 0,
+    anchored: data?.services.filter((s) => getServiceScore(s) >= 80).length || 0,
+    database:
+      data?.services.filter((s) => getServiceScore(s) >= 40 && getServiceScore(s) < 80).length || 0,
+    risk: data?.services.filter((s) => getServiceScore(s) < 40).length || 0,
   };
 
   return (
@@ -101,7 +146,7 @@ export default function DirectoryPage() {
 
         {/* Filters */}
         <div className="glass mb-8 rounded-none p-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground-subtle" />
               <input
@@ -123,6 +168,9 @@ export default function DirectoryPage() {
               <option value="ai-compute">AI Compute</option>
               <option value="storage">Storage</option>
               <option value="analytics">Analytics</option>
+              <option value="oracle">Oracle</option>
+              <option value="yield">Yield</option>
+              <option value="other">Other</option>
             </select>
 
             <select
@@ -135,7 +183,30 @@ export default function DirectoryPage() {
               <option value="sBTC">sBTC</option>
               <option value="USDCx">USDCx</option>
             </select>
+
+            <input
+              type="number"
+              min={0}
+              value={minReputationInput}
+              onChange={(e) => setMinReputationInput(e.target.value)}
+              placeholder="Min reputation"
+              className="rounded-none border border bg-background px-4 py-2 transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortKey)}
+              className="rounded-none border border bg-background px-4 py-2 transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+            >
+              <option value="reputation_desc">Sort: Reputation</option>
+              <option value="deliveries_desc">Sort: Deliveries</option>
+              <option value="registered_desc">Sort: Newest</option>
+            </select>
           </div>
+
+          <p className="mt-3 text-xs text-foreground-subtle">
+            Showing {filteredServices.length} services
+          </p>
         </div>
 
         {/* Loading */}
@@ -161,7 +232,7 @@ export default function DirectoryPage() {
         )}
 
         {/* Services Grid */}
-        {filteredServices && filteredServices.length > 0 ? (
+        {filteredServices.length > 0 ? (
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredServices.map((service) => (
               <ServiceCard key={service.principal} service={service} />
@@ -196,14 +267,17 @@ function ServiceCard({ service }: { service: Service }) {
     return 'risk';
   };
 
-  const successRate = 0.95; // TODO: Calculate from actual data
-  const totalDeliveries = 245; // TODO: From API
-  const disputes = 2; // TODO: From API
-  const stake = 100; // STX - TODO: From API
+  const score = getServiceScore(service);
+  const successRate = service.reputation?.success_rate ?? 0;
+  const stake = getServiceStakeStx(service);
+  const totalVolumeRaw = getServiceTotalVolume(service);
+  const totalVolume = Number(totalVolumeRaw || '0');
+  const totalDeliveries = getServiceDeliveries(service);
+  const totalDisputes = getServiceDisputes(service);
 
   return (
     <Link href={`/directory/${service.principal}`}>
-      <div className="glass group cursor-pointer rounded-none p-6 transition-all hover:glass-elevate">
+      <article className="glass group cursor-pointer rounded-none p-6 transition-all hover:glass-elevate">
         {/* Header */}
         <div className="mb-4 flex items-start justify-between">
           <div className="flex-1">
@@ -229,23 +303,22 @@ function ServiceCard({ service }: { service: Service }) {
             </div>
           </div>
 
-          <TrustBadge level={getTrustLevel(service.reputation_score)} />
+          <TrustBadge level={getTrustLevel(score)} />
         </div>
 
         {/* Reputation Score */}
         <div className="mb-4 border-t border pt-4">
           <div className="mb-2 flex items-center justify-between">
             <span className="text-xs text-foreground-muted">Reputation</span>
-            <span className="font-mono text-2xl font-bold">{service.reputation_score}</span>
+            <span className="font-mono text-2xl font-bold">{score}</span>
           </div>
 
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-background">
             <div
               className={`h-full ${
-                service.reputation_score >= 80 ? 'bg-success' :
-                service.reputation_score >= 40 ? 'bg-warning' : 'bg-error'
+                score >= 80 ? 'bg-success' : score >= 40 ? 'bg-warning' : 'bg-error'
               }`}
-              style={{ width: `${service.reputation_score}%` }}
+              style={{ width: `${Math.min(score, 100)}%` }}
             />
           </div>
         </div>
@@ -257,22 +330,22 @@ function ServiceCard({ service }: { service: Service }) {
             <span className="font-semibold">{(successRate * 100).toFixed(1)}%</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-foreground-subtle">Deliveries</span>
-            <span className="font-semibold">{totalDeliveries.toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-foreground-subtle">Disputes</span>
-            <span className="font-semibold">{disputes}</span>
-          </div>
-          <div className="flex justify-between">
             <span className="text-foreground-subtle">Stake Bonded</span>
             <span className="font-semibold">{stake} STX</span>
           </div>
           <div className="flex justify-between">
             <span className="text-foreground-subtle">Total Volume</span>
             <span className="font-semibold">
-              ${(parseFloat(service.total_volume) / 1000000).toFixed(2)}M
+              {Number.isFinite(totalVolume) ? totalVolume.toLocaleString() : '0'}
             </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-foreground-subtle">Deliveries</span>
+            <span className="font-semibold">{totalDeliveries}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-foreground-subtle">Disputes</span>
+            <span className="font-semibold">{totalDisputes}</span>
           </div>
         </div>
 
@@ -288,7 +361,7 @@ function ServiceCard({ service }: { service: Service }) {
             </div>
           ))}
         </div>
-      </div>
+      </article>
     </Link>
   );
 }

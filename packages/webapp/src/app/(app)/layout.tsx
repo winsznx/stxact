@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/Navbar";
 import { Sidebar } from "@/components/Sidebar";
+import { appNavbarLinks } from "@/lib/navigation";
 
 export default function DashboardLayout({
     children,
@@ -10,7 +11,7 @@ export default function DashboardLayout({
         <div className="flex min-h-screen">
             <Sidebar />
             <main className="flex-1">
-                <Navbar />
+                <Navbar links={appNavbarLinks} showDesktopLinks={false} />
                 {children}
             </main>
         </div>

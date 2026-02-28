@@ -1,0 +1,479 @@
+openapi: 3.0.3
+info:
+  title: stxact Proxy API
+  version: 1.0.0
+  description: |
+    OpenAPI specification for the stxact proxy routes used by webapp and CLI.
+servers:
+  - url: http://localhost:3001
+    description: Local development
+tags:
+  - name: Health
+  - name: Directory
+  - name: Receipts
+  - name: Disputes
+  - name: Reputation
+paths:
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  timestamp: { type: string, format: date-time }
+                  uptime: { type: number }
+                  environment: { type: string }
+
+  /.well-known/stxact-config:
+    get:
+      tags: [Health]
+      summary: stxact capability descriptor
+      responses:
+        "200":
+          description: Capability document
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /directory/services:
+    get:
+      tags: [Directory]
+      summary: List services
+      parameters:
+        - in: query
+          name: min_reputation
+          schema: { type: integer, minimum: 0 }
+        - in: query
+          name: supported_token
+          schema: { type: string }
+        - in: query
+          name: token
+          schema: { type: string }
+          description: Alias for `supported_token` (backward compatibility)
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Service list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  services:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Service"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+
+  /directory/services/{principal}:
+    get:
+      tags: [Directory]
+      summary: Get service by principal or BNS name
+      parameters:
+        - in: path
+          name: principal
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Service record
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+        "404":
+          description: Not found
+
+  /directory/register:
+    post:
+      tags: [Directory]
+      summary: Register service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterServiceRequest"
+      responses:
+        "201":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  service_id: { type: string }
+                  status: { type: string }
+                  tx_hash: { type: string }
+
+  /receipts:
+    get:
+      tags: [Receipts]
+      summary: List receipts
+      parameters:
+        - in: query
+          name: seller_principal
+          schema: { type: string }
+        - in: query
+          name: buyer_principal
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [timestamp_desc, timestamp_asc]
+      responses:
+        "200":
+          description: Receipt list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  receipts:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Receipt"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+
+  /receipts/{receipt_id}:
+    get:
+      tags: [Receipts]
+      summary: Get receipt by ID
+      parameters:
+        - in: path
+          name: receipt_id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Receipt payload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Receipt"
+        "404":
+          description: Not found
+
+  /receipts/verify:
+    post:
+      tags: [Receipts]
+      summary: Verify receipt signature
+      parameters:
+        - in: query
+          name: on_chain
+          schema: { type: boolean }
+        - in: query
+          name: bns
+          schema: { type: boolean }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                receipt:
+                  $ref: "#/components/schemas/Receipt"
+              required: [receipt]
+      responses:
+        "200":
+          description: Verification results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid: { type: boolean }
+                  checks:
+                    $ref: "#/components/schemas/VerificationChecks"
+
+  /disputes:
+    get:
+      tags: [Disputes]
+      summary: List disputes
+      parameters:
+        - in: query
+          name: seller_principal
+          schema: { type: string }
+        - in: query
+          name: buyer_principal
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - in: query
+          name: offset
+          schema: { type: integer, minimum: 0, default: 0 }
+      responses:
+        "200":
+          description: Dispute list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  disputes:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Dispute"
+                  pagination:
+                    $ref: "#/components/schemas/Pagination"
+    post:
+      tags: [Disputes]
+      summary: Create dispute
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [receipt_id, reason]
+              properties:
+                receipt_id: { type: string, format: uuid }
+                reason: { type: string }
+                evidence: { type: object, additionalProperties: true }
+                buyer_signature: { type: string }
+                timestamp: { type: integer }
+      responses:
+        "201":
+          description: Dispute created
+
+  /disputes/{dispute_id}:
+    get:
+      tags: [Disputes]
+      summary: Get dispute by ID
+      parameters:
+        - in: path
+          name: dispute_id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Dispute details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dispute"
+    patch:
+      tags: [Disputes]
+      summary: Update dispute status
+      parameters:
+        - in: path
+          name: dispute_id
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [open, acknowledged, resolved, refunded]
+                resolution_notes: { type: string }
+      responses:
+        "200":
+          description: Updated dispute
+
+  /disputes/refunds:
+    post:
+      tags: [Disputes]
+      summary: Submit and execute refund authorization
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefundAuthorizationRequest"
+      responses:
+        "200":
+          description: Refund executed
+
+  /reputation/{principal}:
+    get:
+      tags: [Reputation]
+      summary: Get principal reputation
+      parameters:
+        - in: path
+          name: principal
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Reputation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reputation"
+
+components:
+  schemas:
+    Pagination:
+      type: object
+      properties:
+        total: { type: integer }
+        limit: { type: integer }
+        offset: { type: integer }
+        has_more: { type: boolean }
+
+    Token:
+      type: object
+      properties:
+        symbol: { type: string }
+        token_contract: { type: string }
+        network: { type: string }
+
+    ReputationSnapshot:
+      type: object
+      properties:
+        score: { type: integer }
+        success_rate: { type: number, format: float }
+        total_volume: { type: string }
+
+    Service:
+      type: object
+      properties:
+        service_id: { type: string }
+        principal: { type: string }
+        bns_name: { type: string, nullable: true }
+        endpoint_url: { type: string }
+        policy_hash: { type: string }
+        policy_url: { type: string, nullable: true }
+        category: { type: string }
+        supported_tokens:
+          type: array
+          items:
+            $ref: "#/components/schemas/Token"
+        total_deliveries: { type: integer }
+        total_disputes: { type: integer }
+        registered_at: { type: integer }
+        reputation:
+          $ref: "#/components/schemas/ReputationSnapshot"
+
+    Receipt:
+      type: object
+      properties:
+        receipt_id: { type: string, format: uuid }
+        request_hash: { type: string }
+        payment_txid: { type: string }
+        seller_principal: { type: string }
+        seller_bns_name: { type: string, nullable: true }
+        buyer_principal: { type: string, nullable: true }
+        delivery_commitment: { type: string, nullable: true }
+        timestamp: { type: integer }
+        block_height: { type: integer }
+        block_hash: { type: string }
+        key_version: { type: integer }
+        revision: { type: integer }
+        service_policy_hash: { type: string, nullable: true }
+        signature: { type: string }
+
+    VerificationChecks:
+      type: object
+      properties:
+        signature_valid: { type: boolean }
+        principal_match: { type: boolean, nullable: true }
+        payment_txid_confirmed: { type: boolean, nullable: true }
+        bns_verified: { type: boolean, nullable: true }
+
+    Dispute:
+      type: object
+      properties:
+        dispute_id: { type: string, format: uuid }
+        receipt_id: { type: string, format: uuid }
+        buyer_principal: { type: string, nullable: true }
+        seller_principal: { type: string, nullable: true }
+        reason: { type: string }
+        status:
+          type: string
+          enum: [open, acknowledged, resolved, refunded, rejected]
+        evidence: { type: object, additionalProperties: true, nullable: true }
+        created_at: { type: integer }
+        resolved_at: { type: integer, nullable: true }
+        resolution_notes: { type: string, nullable: true }
+        refund_amount: { type: string, nullable: true }
+        refund_txid: { type: string, nullable: true }
+
+    Reputation:
+      type: object
+      properties:
+        principal: { type: string }
+        score: { type: integer }
+        total_volume: { type: string }
+        delivery_count: { type: integer }
+        last_updated: { type: integer }
+        on_chain: { type: boolean }
+
+    RegisterServiceRequest:
+      type: object
+      required:
+        - endpoint_url
+        - policy_hash
+        - category
+        - supported_tokens
+        - signature
+        - timestamp
+      properties:
+        endpoint_url: { type: string }
+        policy_hash: { type: string }
+        bns_name: { type: string }
+        category: { type: string }
+        supported_tokens:
+          type: array
+          items:
+            $ref: "#/components/schemas/Token"
+        tags:
+          type: array
+          items: { type: string }
+        pricing: { type: object, additionalProperties: true }
+        policy_url: { type: string }
+        signature: { type: string }
+        timestamp: { type: integer }
+
+    RefundAuthorizationRequest:
+      type: object
+      required:
+        - dispute_id
+        - receipt_id
+        - refund_amount
+        - buyer_principal
+        - timestamp
+        - seller_signature
+      properties:
+        dispute_id: { type: string, format: uuid }
+        receipt_id: { type: string, format: uuid }
+        refund_amount: { type: string }
+        buyer_principal: { type: string }
+        timestamp: { type: integer }
+        seller_signature: { type: string }

@@ -11,7 +11,7 @@ import { closeRedisClient } from './storage/cache';
 import { validateEnv } from './config/env';
 
 const app: Application = express();
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = parseInt(process.env.PORT || '3001', 10);
 
 /**
  * Initialize application
@@ -210,11 +210,20 @@ import disputesRouter from './api/disputes';
 import reputationRouter from './api/reputation';
 import demoRouter from './api/demo';
 
+const enableDemoRoutes =
+  process.env.ENABLE_DEMO_ROUTES === 'true' || process.env.NODE_ENV !== 'production';
+
 app.use('/receipts', receiptsRouter);
 app.use('/directory', directoryRouter);
 app.use('/disputes', disputesRouter);
 app.use('/reputation', reputationRouter);
-app.use('/demo', demoRouter);
+
+if (enableDemoRoutes) {
+  app.use('/demo', demoRouter);
+  logger.info('Demo routes enabled');
+} else {
+  logger.info('Demo routes disabled');
+}
 
 /**
  * 404 handler

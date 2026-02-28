@@ -58,6 +58,12 @@ export async function generateReceiptMiddleware(
         const servicePrincipal = process.env.SERVICE_PRINCIPAL!;
         const serviceBnsName = process.env.SERVICE_BNS_NAME || undefined;
         const servicePolicyHash = process.env.SERVICE_POLICY_HASH || undefined;
+        const blockHeight = Number(verifiedPayment.block_height);
+        const blockHash = String(verifiedPayment.block_hash || '');
+
+        if (!blockHeight || !blockHash) {
+          throw new Error('Missing payment confirmation metadata (block_height/block_hash)');
+        }
 
         const receipt: Omit<Receipt, 'signature'> = {
           receipt_id: receiptId,
@@ -65,17 +71,17 @@ export async function generateReceiptMiddleware(
           payment_txid: verifiedPayment.payment_txid,
           seller_principal: servicePrincipal,
           seller_bns_name: serviceBnsName,
-          buyer_principal: undefined, // Optional: extract from payment if available
+          buyer_principal: verifiedPayment.payer || undefined,
           delivery_commitment: deliverableHash,
           timestamp,
-          block_height: verifiedPayment.block_height,
-          block_hash: verifiedPayment.block_hash,
+          block_height: blockHeight,
+          block_hash: blockHash,
           key_version: 1,
           revision: 0,
           service_policy_hash: servicePolicyHash,
           metadata: {
             endpoint: `${req.method} ${req.path}`,
-            price_sats: verifiedPayment.amount,
+            price_sats: String(verifiedPayment.amount),
             token_contract: 'SP2ASJZHEKV2MBDYWS1HT63WXYXWX49NF.sbtc-token',
           },
         };
@@ -104,7 +110,9 @@ export async function generateReceiptMiddleware(
         // Add receipt to anchoring batch (fire-and-forget, optional)
         if (process.env.ENABLE_RECEIPT_ANCHORING === 'true') {
           const { anchorManager } = await import('../blockchain/receipt-anchor');
-          anchorManager.addReceipt(receiptId).catch((error) => {
+          anchorManager
+            .addReceipt(receiptId, verifiedPayment.payment_txid, servicePrincipal)
+            .catch((error) => {
             logger.error('Failed to add receipt to anchor batch', {
               error: error.message,
               receipt_id: receiptId,
@@ -122,16 +130,18 @@ export async function generateReceiptMiddleware(
         });
 
         // Cache response for idempotency
-        await cacheResponse(requestHash, idempotencyKey, {
-          statusCode: res.statusCode,
-          headers: {
-            'X-stxact-Receipt-ID': receiptId,
-            'X-stxact-Deliverable-Hash': deliverableHash,
-            'X-stxact-Signature': signature,
-            'X-stxact-Receipt': Buffer.from(receiptJson).toString('base64'),
-          },
-          body: typeof body === 'string' ? body : JSON.stringify(body),
-        });
+        if (idempotencyKey) {
+          await cacheResponse(requestHash, idempotencyKey, {
+            statusCode: res.statusCode,
+            headers: {
+              'X-stxact-Receipt-ID': receiptId,
+              'X-stxact-Deliverable-Hash': deliverableHash,
+              'X-stxact-Signature': signature,
+              'X-stxact-Receipt': Buffer.from(receiptJson).toString('base64'),
+            },
+            body: typeof body === 'string' ? body : JSON.stringify(body),
+          });
+        }
 
         logger.info('Receipt generated and signed', {
           receipt_id: receiptId,
@@ -224,7 +234,7 @@ export async function updateReputationAsync(
       broadcastTransaction,
       AnchorMode,
       principalCV,
-      bufferCVFromString,
+      bufferCV,
       uintCV,
     } = await import('@stacks/transactions');
     const { getStacksNetwork } = await import('../config/stacks');
@@ -256,7 +266,7 @@ export async function updateReputationAsync(
       functionName: 'record-successful-delivery',
       functionArgs: [
         principalCV(sellerPrincipal),
-        bufferCVFromString(receiptHash),
+        bufferCV(Buffer.from(receiptHash, 'hex')),
         uintCV(parseInt(paymentAmountSats, 10)),
       ],
       senderKey: reputationUpdaterKey,
@@ -312,6 +322,23 @@ export async function updateReputationAsync(
       seller_principal: sellerPrincipal,
       nonce: nonce.toString(),
     });
+
+    // Best-effort audit trail for reputation activity.
+    try {
+      const pool = getPool();
+      await pool.query(
+        `INSERT INTO reputation_events (
+          seller_principal, receipt_id, payment_amount, event_type, txid, created_at
+        ) VALUES ($1, $2, $3, $4, $5, NOW())`,
+        [sellerPrincipal, receiptId, paymentAmountSats, 'delivery_recorded', broadcastResponse.txid]
+      );
+    } catch (dbError) {
+      logger.warn('Failed to persist reputation event audit row', {
+        receipt_id: receiptId,
+        seller_principal: sellerPrincipal,
+        error: dbError instanceof Error ? dbError.message : 'Unknown error',
+      });
+    }
 
     // Mark nonce as confirmed (optimistic - actual confirmation happens later)
     // This prevents reuse while transaction is in mempool

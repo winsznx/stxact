@@ -4,6 +4,7 @@ import { Receipt } from '../crypto/receipt-canonical';
 import { getPool } from '../storage/db';
 import { getStacksNetwork } from '../config/stacks';
 import { logger } from '../config/logger';
+import { generateReceiptCSV } from '../utils/csv-formatter';
 
 const router = Router();
 
@@ -211,6 +212,13 @@ router.get('/:receipt_id', async (req: Request, res: Response) => {
 
     const row = result.rows[0];
 
+    const metadataValue =
+      row.metadata === null || row.metadata === undefined
+        ? undefined
+        : typeof row.metadata === 'string'
+          ? JSON.parse(row.metadata)
+          : row.metadata;
+
     const receipt: Receipt = {
       receipt_id: row.receipt_id,
       request_hash: row.request_hash,
@@ -225,7 +233,7 @@ router.get('/:receipt_id', async (req: Request, res: Response) => {
       key_version: parseInt(row.key_version, 10),
       revision: parseInt(row.revision, 10),
       service_policy_hash: row.service_policy_hash,
-      metadata: row.metadata ? JSON.parse(row.metadata) : undefined,
+      metadata: metadataValue,
       signature: row.signature,
     };
 
@@ -281,7 +289,7 @@ router.get('/:receipt_id/pdf', async (req: Request, res: Response) => {
 
     res.status(500).json({
       error: 'pdf_generation_failed',
-      message: 'Failed to generate PDF (PDF generator not yet implemented)',
+      message: 'Failed to generate PDF',
     });
   }
 });
@@ -308,9 +316,6 @@ router.get('/:receipt_id/csv', async (req: Request, res: Response) => {
       return;
     }
 
-    // Import CSV formatter
-    const { generateReceiptCSV } = await import('../utils/pdf-generator');
-
     const csvContent = generateReceiptCSV(result.rows[0]);
 
     res.setHeader('Content-Type', 'text/csv');
@@ -324,7 +329,7 @@ router.get('/:receipt_id/csv', async (req: Request, res: Response) => {
 
     res.status(500).json({
       error: 'csv_generation_failed',
-      message: 'Failed to generate CSV (CSV formatter not yet implemented)',
+      message: 'Failed to generate CSV',
     });
   }
 });
@@ -336,9 +341,10 @@ async function verifyPaymentTransaction(paymentTxid: string): Promise<boolean> {
   try {
     const axios = await import('axios');
     const stacksApiUrl = process.env.STACKS_API_URL || 'https://api.testnet.hiro.so';
+    const txid = paymentTxid.startsWith('0x') ? paymentTxid : `0x${paymentTxid}`;
 
     const response = await axios.default.get(
-      `${stacksApiUrl}/extended/v1/tx/${paymentTxid}`,
+      `${stacksApiUrl}/extended/v1/tx/${txid}`,
       {
         timeout: 10000,
       }

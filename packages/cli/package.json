@@ -20,10 +20,12 @@
     "chalk": "^4.1.2",
     "ora": "^5.4.1",
     "cli-table3": "^0.6.3",
-    "axios": "^1.6.5"
+    "axios": "^1.6.5",
+    "x402-stacks": "^2.0.1"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   }
 }

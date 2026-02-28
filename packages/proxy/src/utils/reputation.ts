@@ -33,23 +33,43 @@ export async function getOnChainReputation(principal: string): Promise<Reputatio
     const result = await callReadOnlyFunction({
       contractAddress,
       contractName,
-      functionName: 'get-seller-reputation',
+      functionName: 'get-reputation',
       functionArgs: [principalCV(principal)],
       network,
       senderAddress: principal,
     });
 
-    // Return null if no reputation data exists
-    if (result.type === ClarityType.OptionalNone) {
+    if (result.type !== ClarityType.ResponseOk) {
+      logger.warn('On-chain reputation call returned non-ok response', {
+        principal,
+        response_type: result.type,
+      });
       return null;
     }
 
-    const reputationData = cvToJSON(result).value as any;
+    // get-reputation returns: (response (optional { ...tuple... }) ...)
+    if (result.value.type === ClarityType.OptionalNone) {
+      return null;
+    }
+
+    if (result.value.type !== ClarityType.OptionalSome) {
+      logger.warn('Unexpected reputation response payload type', {
+        principal,
+        payload_type: result.value.type,
+      });
+      return null;
+    }
+
+    const reputationData = cvToJSON(result.value.value).value as any;
+
+    const scoreRaw = reputationData['score']?.value ?? reputationData['score'] ?? '0';
+    const lastUpdatedRaw = reputationData['last-updated']?.value ?? reputationData['last-updated'] ?? '0';
 
     return {
-      score: parseInt(reputationData.score || '0', 10),
-      totalVolume: reputationData['total-volume'] || '0',
-      lastUpdated: parseInt(reputationData['last-updated'] || '0', 10),
+      score: parseInt(String(scoreRaw), 10),
+      // Current reputation contract does not track total volume directly.
+      totalVolume: '0',
+      lastUpdated: parseInt(String(lastUpdatedRaw), 10),
     };
   } catch (error) {
     logger.error('Failed to query on-chain reputation', {

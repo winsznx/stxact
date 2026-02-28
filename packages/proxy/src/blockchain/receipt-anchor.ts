@@ -4,25 +4,31 @@ import { logger } from '../config/logger';
 /**
  * Receipt Anchoring Module
  *
- * Implements optional on-chain anchoring of receipt batches via Merkle root commitment.
+ * Implements optional on-chain anchoring of receipts.
  *
  * PRD Reference: Section 8 - Optional Receipt Anchoring (lines 1101-1184)
  *
  * Features:
- * - Batches receipts for efficient on-chain commitment
- * - Computes Merkle root over receipt IDs
- * - Anchors batches when threshold reached or timer expires
+ * - Batches enqueue events for efficient processing
+ * - Anchors each receipt using receipt-anchor.clar::anchor-receipt
+ * - Flushes when threshold reached or timer expires
  * - Fire-and-forget pattern (errors logged, don't block receipt generation)
  */
 
+interface AnchorRecord {
+  receiptId: string;
+  paymentTxid: string;
+  sellerPrincipal: string;
+}
+
 interface AnchorBatch {
-  receiptIds: string[];
+  records: AnchorRecord[];
   createdAt: number;
 }
 
 class ReceiptAnchorManager {
   private currentBatch: AnchorBatch = {
-    receiptIds: [],
+    records: [],
     createdAt: Date.now(),
   };
   private readonly batchThreshold = 100; // Anchor after 100 receipts
@@ -33,20 +39,28 @@ class ReceiptAnchorManager {
    * Add a receipt to the current batch for anchoring
    * Triggers batch anchoring if threshold reached
    */
-  async addReceipt(receiptId: string): Promise<void> {
+  async addReceipt(
+    receiptId: string,
+    paymentTxid: string,
+    sellerPrincipal: string
+  ): Promise<void> {
     if (!this.isEnabled()) {
       return;
     }
 
-    this.currentBatch.receiptIds.push(receiptId);
+    this.currentBatch.records.push({
+      receiptId,
+      paymentTxid,
+      sellerPrincipal,
+    });
 
     // Start timer on first receipt in batch
-    if (this.currentBatch.receiptIds.length === 1) {
+    if (this.currentBatch.records.length === 1) {
       this.startBatchTimer();
     }
 
     // Anchor if threshold reached
-    if (this.currentBatch.receiptIds.length >= this.batchThreshold) {
+    if (this.currentBatch.records.length >= this.batchThreshold) {
       await this.anchorCurrentBatch();
     }
   }
@@ -75,63 +89,20 @@ class ReceiptAnchorManager {
   }
 
   /**
-   * Compute Merkle root over receipt IDs
-   *
-   * Algorithm:
-   * 1. Sort receipt IDs (canonical ordering)
-   * 2. Hash each receipt ID individually
-   * 3. Build binary tree by hashing pairs
-   * 4. Return root hash
-   */
-  private computeMerkleRoot(receiptIds: string[]): string {
-    if (receiptIds.length === 0) {
-      throw new Error('Cannot compute Merkle root of empty set');
-    }
-
-    // Sort for canonical ordering
-    const sorted = [...receiptIds].sort();
-
-    // Hash each receipt ID
-    let hashes = sorted.map((id) =>
-      createHash('sha256').update(id).digest()
-    );
-
-    // Build Merkle tree
-    while (hashes.length > 1) {
-      const nextLevel = [];
-
-      for (let i = 0; i < hashes.length; i += 2) {
-        if (i + 1 < hashes.length) {
-          // Hash pair
-          const combined = Buffer.concat([hashes[i], hashes[i + 1]]);
-          nextLevel.push(createHash('sha256').update(combined).digest());
-        } else {
-          // Odd node, promote to next level
-          nextLevel.push(hashes[i]);
-        }
-      }
-
-      hashes = nextLevel;
-    }
-
-    return hashes[0].toString('hex');
-  }
-
-  /**
    * Anchor current batch on-chain
    * Fire-and-forget: errors logged but don't throw
    */
   private async anchorCurrentBatch(): Promise<void> {
-    if (this.currentBatch.receiptIds.length === 0) {
+    if (this.currentBatch.records.length === 0) {
       return;
     }
 
-    const receiptIds = [...this.currentBatch.receiptIds];
-    const batchSize = receiptIds.length;
+    const records = [...this.currentBatch.records];
+    const batchSize = records.length;
 
     // Reset batch immediately (don't wait for transaction)
     this.currentBatch = {
-      receiptIds: [],
+      records: [],
       createdAt: Date.now(),
     };
 
@@ -143,18 +114,16 @@ class ReceiptAnchorManager {
     try {
       logger.info('Anchoring receipt batch', {
         batch_size: batchSize,
-        first_receipt: receiptIds[0],
-        last_receipt: receiptIds[batchSize - 1],
+        first_receipt: records[0]?.receiptId,
+        last_receipt: records[batchSize - 1]?.receiptId,
       });
-
-      const merkleRoot = this.computeMerkleRoot(receiptIds);
 
       // Import dependencies dynamically
       const {
         makeContractCall,
         broadcastTransaction,
-        bufferCVFromString,
-        uintCV,
+        bufferCV,
+        principalCV,
         AnchorMode,
       } = await import('@stacks/transactions');
       const { getStacksNetwork } = await import('../config/stacks');
@@ -164,6 +133,8 @@ class ReceiptAnchorManager {
       const anchorKey = process.env.SELLER_PRIVATE_KEY!;
       const [contractAddress, contractName] = process.env.RECEIPT_ANCHOR_ADDRESS!.split('.');
       const senderAddress = process.env.SERVICE_PRINCIPAL!;
+      let successCount = 0;
+      let failureCount = 0;
 
       // Initialize nonce manager if needed
       if (!(nonceManager as any)._initialized) {
@@ -171,51 +142,78 @@ class ReceiptAnchorManager {
         (nonceManager as any)._initialized = true;
       }
 
-      const nonce = await nonceManager.allocateNonce(senderAddress);
+      for (const record of records) {
+        try {
+          if (record.sellerPrincipal !== senderAddress) {
+            logger.error('Skipping receipt anchor due to seller principal mismatch', {
+              receipt_id: record.receiptId,
+              expected_seller: senderAddress,
+              actual_seller: record.sellerPrincipal,
+            });
+            failureCount++;
+            continue;
+          }
 
-      const anchorTx = await makeContractCall({
-        contractAddress,
-        contractName,
-        functionName: 'anchor-receipt-batch',
-        functionArgs: [
-          bufferCVFromString(merkleRoot),
-          uintCV(batchSize),
-        ],
-        senderKey: anchorKey,
-        network,
-        anchorMode: AnchorMode.Any,
-        nonce,
-        fee: BigInt(process.env.CONTRACT_CALL_FEE || '1000'),
-      });
+          const nonce = await nonceManager.allocateNonce(senderAddress);
+          const txidWithoutPrefix = normalizeTxid(record.paymentTxid);
+          const receiptHash = createHash('sha256').update(record.receiptId).digest();
 
-      // Type annotation required: broadcastTransaction return type causes narrowing issues with TypeScript
-      // @stacks/transactions doesn't export a proper type for the response, using any with explicit check below
-      const broadcastResponse: any = await broadcastTransaction(anchorTx, network);
+          const anchorTx = await makeContractCall({
+            contractAddress,
+            contractName,
+            functionName: 'anchor-receipt',
+            functionArgs: [
+              bufferCV(receiptHash),
+              bufferCV(Buffer.from(record.receiptId, 'utf8')),
+              principalCV(record.sellerPrincipal),
+              bufferCV(Buffer.from(txidWithoutPrefix, 'utf8')),
+            ],
+            senderKey: anchorKey,
+            network,
+            anchorMode: AnchorMode.Any,
+            nonce,
+            fee: BigInt(process.env.CONTRACT_CALL_FEE || '1000'),
+          });
 
-      if (broadcastResponse.error) {
-        await nonceManager.markFailed(senderAddress, nonce);
+          // Type annotation required: broadcastTransaction return type causes narrowing issues with TypeScript
+          // @stacks/transactions doesn't export a proper type for the response, using any with explicit check below
+          const broadcastResponse: any = await broadcastTransaction(anchorTx, network);
 
-        logger.error('Failed to broadcast receipt anchor transaction', {
-          batch_size: batchSize,
-          merkle_root: merkleRoot,
-          error: broadcastResponse.error,
-          reason: broadcastResponse.reason,
-        });
+          if (broadcastResponse.error) {
+            await nonceManager.markFailed(senderAddress, nonce);
 
-        return;
-      }
+            logger.error('Failed to broadcast receipt anchor transaction', {
+              receipt_id: record.receiptId,
+              payment_txid: record.paymentTxid,
+              error: broadcastResponse.error,
+              reason: broadcastResponse.reason,
+            });
+            failureCount++;
+            continue;
+          }
 
-      // Mark nonce as confirmed (synchronous, non-blocking)
-      try {
-        nonceManager.markConfirmed(senderAddress, nonce);
-      } catch (err) {
-        logger.warn('Failed to mark nonce as confirmed (non-critical)', { error: err });
+          // Mark nonce as confirmed (synchronous, non-blocking)
+          try {
+            nonceManager.markConfirmed(senderAddress, nonce);
+          } catch (err) {
+            logger.warn('Failed to mark nonce as confirmed (non-critical)', { error: err });
+          }
+
+          successCount++;
+        } catch (recordError) {
+          logger.error('Failed to prepare or anchor receipt record', {
+            receipt_id: record.receiptId,
+            payment_txid: record.paymentTxid,
+            error: recordError instanceof Error ? recordError.message : 'Unknown error',
+          });
+          failureCount++;
+        }
       }
 
       logger.info('Receipt batch anchored on-chain', {
-        tx_id: broadcastResponse.txid,
         batch_size: batchSize,
-        merkle_root: merkleRoot,
+        anchored_count: successCount,
+        failed_count: failureCount,
       });
     } catch (error) {
       logger.error('Receipt batch anchoring failed', {
@@ -235,3 +233,11 @@ class ReceiptAnchorManager {
 
 // Singleton instance
 export const anchorManager = new ReceiptAnchorManager();
+
+function normalizeTxid(txid: string): string {
+  const normalized = txid.startsWith('0x') ? txid.slice(2) : txid;
+  if (!/^[0-9a-fA-F]{64}$/.test(normalized)) {
+    throw new Error(`Invalid payment txid format for anchoring: ${txid}`);
+  }
+  return normalized.toLowerCase();
+}
