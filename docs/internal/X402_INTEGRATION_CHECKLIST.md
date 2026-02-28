@@ -135,13 +135,13 @@
 - [ ] Update architecture diagrams
 - [ ] Document migration path from custom to official library
 
-## Old Files (Not Deleted)
+## Old Files (Retired)
 
-These files are superseded but kept for reference:
-- `src/middleware/x402-challenge.ts` - Custom 402 generation (replaced)
-- `src/middleware/verify-payment.ts` - Custom payment verification (replaced)
+The superseded custom middleware paths were removed from `packages/proxy/src/middleware`:
+- `x402-challenge.ts`
+- `verify-payment.ts`
 
-**Decision**: Keep old files for now to allow gradual migration. Can be deleted after full verification.
+The runtime now uses only `x402-payment-gate.ts` for payment protocol handling.
 
 ## Summary
 

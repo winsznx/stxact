@@ -21,7 +21,7 @@ Copy `.env.example` to `.env` and configure:
 
 ```bash
 # Server
-PORT=3000
+PORT=3001
 NODE_ENV=development
 
 # Database
@@ -55,14 +55,14 @@ npm run migrate
 npm run dev
 ```
 
-Server starts on `http://localhost:3000`
+Server starts on `http://localhost:3001`
 
 ## Testing the x402 Payment Flow
 
 ### Step 1: Request Without Payment (Expect 402)
 
 ```bash
-curl -i http://localhost:3000/demo/premium-data
+curl -i http://localhost:3001/demo/premium-data
 ```
 
 **Expected Response:**
@@ -88,7 +88,7 @@ echo "eyJ4NDAyVmVyc2lvbiI6Miwi..." | base64 -d | jq
 {
   "x402Version": 2,
   "resource": {
-    "url": "http://localhost:3000/demo/premium-data",
+    "url": "http://localhost:3001/demo/premium-data",
     "description": "Demo premium data endpoint"
   },
   "accepts": [
@@ -122,7 +122,7 @@ async function testPayment() {
 
   // Wrap axios with automatic payment handling
   const api = wrapAxiosWithPayment(
-    axios.create({ baseURL: 'http://localhost:3000' }),
+    axios.create({ baseURL: 'http://localhost:3001' }),
     account
   );
 
@@ -203,7 +203,7 @@ echo "eyJyZWNlaXB0X2lkIjoi..." | base64 -d | jq
 ### Step 4: Verify Receipt Signature
 
 ```bash
-curl -X POST http://localhost:3000/receipts/verify \
+curl -X POST http://localhost:3001/receipts/verify \
   -H "Content-Type: application/json" \
   -d '{
     "receipt": <paste-decoded-receipt-json>
@@ -229,7 +229,7 @@ curl -X POST http://localhost:3000/receipts/verify \
 Retry the same request (should return cached response):
 
 ```bash
-curl -X GET http://localhost:3000/demo/premium-data \
+curl -X GET http://localhost:3001/demo/premium-data \
   -H "payment-signature: <same-payment-signature>" \
   -H "X-Idempotency-Key: unique-key-123"
 ```
@@ -241,7 +241,7 @@ curl -X GET http://localhost:3000/demo/premium-data \
 Try to use the same payment for a different request:
 
 ```bash
-curl -X POST http://localhost:3000/demo/ai-inference \
+curl -X POST http://localhost:3001/demo/ai-inference \
   -H "payment-signature: <same-payment-signature>" \
   -H "Content-Type: application/json" \
   -d '{"prompt": "Different request"}'
@@ -293,7 +293,7 @@ curl https://api.testnet.hiro.so/extended/v1/tx/0xdef456...
 ## Health Check
 
 ```bash
-curl http://localhost:3000/health
+curl http://localhost:3001/health
 ```
 
 **Expected Response:**
@@ -338,7 +338,7 @@ curl http://localhost:3000/health
 brew install ab
 
 # Run load test (requires pre-paid requests)
-ab -n 100 -c 10 http://localhost:3000/demo/premium-data
+ab -n 100 -c 10 http://localhost:3001/demo/premium-data
 ```
 
 **Expected**: All requests succeed, no nonce conflicts
@@ -356,4 +356,5 @@ ab -n 100 -c 10 http://localhost:3000/demo/premium-data
 - **x402-stacks Docs**: https://docs.x402stacks.xyz/
 - **Facilitator Status**: https://facilitator.stacksx402.com/supported
 - **Stacks Explorer**: https://explorer.hiro.so/?chain=testnet
-- **API Documentation**: http://localhost:3000/.well-known/stxact-config
+- **API Documentation**: http://localhost:3001/.well-known/stxact-config
+
