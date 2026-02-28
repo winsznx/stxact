@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { FileCheck, Shield, Scale, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { ReceiptStack } from '@/components/ReceiptStack';
+import { footerLegalLinks, footerResourceLinks } from '@/lib/navigation';
 
 export default function HomePage() {
   return (
@@ -203,11 +204,13 @@ export default function HomePage() {
             <div>
               <div className="mb-4 text-sm font-semibold">Resources</div>
               <div className="space-y-2 text-sm text-foreground-muted">
-                <div>
-                  <Link href="/docs" className="hover:text-foreground">
-                    Documentation
-                  </Link>
-                </div>
+                {footerResourceLinks.map((link) => (
+                  <div key={link.href}>
+                    <Link href={link.href} className="hover:text-foreground">
+                      {link.name}
+                    </Link>
+                  </div>
+                ))}
                 <div>
                   <a href="https://github.com/winsznx/stxact" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">
                     GitHub
@@ -224,8 +227,13 @@ export default function HomePage() {
             <div>
               <div className="mb-4 text-sm font-semibold">Legal</div>
               <div className="space-y-2 text-sm text-foreground-muted">
-                <div>Privacy</div>
-                <div>Terms</div>
+                {footerLegalLinks.map((link) => (
+                  <div key={link.href}>
+                    <Link href={link.href} className="hover:text-foreground">
+                      {link.name}
+                    </Link>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
