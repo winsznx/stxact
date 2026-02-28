@@ -1,7 +1,10 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import { createHash } from 'crypto';
 import { getPool } from '../storage/db';
 import { logger } from '../config/logger';
+import { recoverPrincipalFromMessageSignature } from '../crypto/signatures';
+import { canonicalize } from '../crypto/canonicalize';
 
 const router = Router();
 
@@ -13,12 +16,34 @@ const router = Router();
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { receipt_id, reason, evidence } = req.body;
+    const { receipt_id, reason, evidence, buyer_signature, timestamp } = req.body;
 
     if (!receipt_id || !reason) {
       res.status(400).json({
         error: 'missing_fields',
         message: 'Required fields: receipt_id, reason',
+      });
+      return;
+    }
+
+    if (!isUuid(receipt_id)) {
+      res.status(400).json({
+        error: 'invalid_receipt_id',
+        message: 'receipt_id must be a UUID',
+      });
+      return;
+    }
+
+    const allowedReasons = new Set([
+      'delivery_hash_mismatch',
+      'no_response',
+      'incomplete_delivery',
+      'fraudulent_quote',
+    ]);
+    if (!allowedReasons.has(reason)) {
+      res.status(400).json({
+        error: 'invalid_reason',
+        message: `reason must be one of: ${Array.from(allowedReasons).join(', ')}`,
       });
       return;
     }
@@ -39,6 +64,98 @@ router.post('/', async (req: Request, res: Response) => {
     }
 
     const receipt = receiptResult.rows[0];
+    const receiptBlockHeight = parseInt(String(receipt.block_height || '0'), 10);
+    if (!Number.isFinite(receiptBlockHeight) || receiptBlockHeight <= 0) {
+      res.status(422).json({
+        error: 'invalid_receipt_block_height',
+        message: 'Receipt is missing valid confirmation block metadata',
+      });
+      return;
+    }
+    const requireBuyerSignature = process.env.REQUIRE_BUYER_SIGNATURE === 'true';
+    let buyerPrincipal = receipt.buyer_principal || null;
+    const requestTimestamp = parseInt(String(timestamp || '0'), 10);
+
+    if (buyer_signature) {
+      if (!Number.isFinite(requestTimestamp) || requestTimestamp <= 0) {
+        res.status(400).json({
+          error: 'invalid_timestamp',
+          message: 'timestamp is required when buyer_signature is provided',
+        });
+        return;
+      }
+
+      const requestSigMessage = [
+        'STXACT-REQUEST',
+        receipt.request_hash,
+        buyerPrincipal || '',
+        requestTimestamp.toString(),
+      ].join(':');
+      const disputeSigMessage = [
+        'STXACT-DISPUTE',
+        receipt_id,
+        reason,
+        requestTimestamp.toString(),
+      ].join(':');
+
+      let recoveredBuyerPrincipal = buyerPrincipal
+        ? recoverPrincipalFromMessageSignature(requestSigMessage, buyer_signature, buyerPrincipal)
+        : null;
+
+      if (!recoveredBuyerPrincipal) {
+        recoveredBuyerPrincipal = buyerPrincipal
+          ? recoverPrincipalFromMessageSignature(disputeSigMessage, buyer_signature, buyerPrincipal)
+          : recoverPrincipalFromMessageSignature(disputeSigMessage, buyer_signature);
+      }
+
+      if (!recoveredBuyerPrincipal) {
+        res.status(401).json({
+          error: 'invalid_buyer_signature',
+          message: 'buyer_signature is invalid',
+        });
+        return;
+      }
+
+      if (buyerPrincipal && recoveredBuyerPrincipal !== buyerPrincipal) {
+        res.status(401).json({
+          error: 'buyer_principal_mismatch',
+          message: 'buyer signature does not match receipt buyer principal',
+        });
+        return;
+      }
+
+      buyerPrincipal = recoveredBuyerPrincipal;
+    } else if (requireBuyerSignature) {
+      res.status(401).json({
+        error: 'buyer_signature_required',
+        message: 'buyer_signature is required when signed requests are enabled',
+      });
+      return;
+    }
+
+    if (!buyerPrincipal) {
+      res.status(422).json({
+        error: 'missing_buyer_principal',
+        message: 'Receipt has no buyer principal; signed dispute request is required',
+      });
+      return;
+    }
+
+    if (!/^S[TP][0-9A-Z]{38,40}$/.test(buyerPrincipal)) {
+      res.status(400).json({
+        error: 'invalid_buyer_principal',
+        message: 'Buyer principal is not a valid Stacks principal',
+      });
+      return;
+    }
+
+    if (!/^S[TP][0-9A-Z]{38,40}$/.test(receipt.seller_principal)) {
+      res.status(422).json({
+        error: 'invalid_seller_principal',
+        message: 'Receipt seller principal is invalid',
+      });
+      return;
+    }
 
     // Verify within dispute window (24 hours)
     const receiptTimestamp = parseInt(receipt.timestamp, 10);
@@ -70,8 +187,86 @@ router.post('/', async (req: Request, res: Response) => {
     // Create dispute
     const disputeId = uuidv4();
     const createdAt = Math.floor(Date.now() / 1000);
-    const resolutionWindowSeconds = parseInt(process.env.RESOLUTION_WINDOW_BLOCKS || '604800', 10); // 7 days default
+    const resolutionWindowSeconds = parseInt(process.env.RESOLUTION_WINDOW_SECONDS || '604800', 10); // 7 days default
     const resolutionDeadline = createdAt + resolutionWindowSeconds;
+
+    // Create dispute on-chain first
+    const {
+      makeContractCall,
+      broadcastTransaction,
+      bufferCV,
+      stringAsciiCV,
+      principalCV,
+      someCV,
+      noneCV,
+      uintCV,
+      AnchorMode,
+    } = await import('@stacks/transactions');
+    const { getStacksNetwork } = await import('../config/stacks');
+    const { nonceManager } = await import('../blockchain/nonce-manager');
+
+    const network = getStacksNetwork();
+    const sellerPrivateKey = process.env.SELLER_PRIVATE_KEY!;
+    const [contractAddress, contractName] = process.env.DISPUTE_RESOLVER_ADDRESS!.split('.');
+    const senderAddress = process.env.SERVICE_PRINCIPAL!;
+
+    const evidenceHash = evidence
+      ? createHash('sha256').update(JSON.stringify(canonicalize(evidence))).digest('hex')
+      : null;
+
+    if (!(nonceManager as any)._initialized) {
+      await nonceManager.initialize(network);
+      (nonceManager as any)._initialized = true;
+    }
+
+    const nonce = await nonceManager.allocateNonce(senderAddress);
+    const disputeTx = await makeContractCall({
+      contractAddress,
+      contractName,
+      functionName: 'create-dispute',
+      functionArgs: [
+        bufferCV(Buffer.from(disputeId, 'utf8')),
+        bufferCV(Buffer.from(receipt_id, 'utf8')),
+        principalCV(buyerPrincipal),
+        principalCV(receipt.seller_principal),
+        stringAsciiCV(reason),
+        evidenceHash ? someCV(bufferCV(Buffer.from(evidenceHash, 'hex'))) : noneCV(),
+        uintCV(receiptBlockHeight),
+      ],
+      senderKey: sellerPrivateKey,
+      network,
+      anchorMode: AnchorMode.Any,
+      nonce,
+      fee: BigInt(process.env.CONTRACT_CALL_FEE || '1000'),
+    });
+
+    // Type annotation required: broadcastTransaction return type causes narrowing issues with TypeScript
+    // @stacks/transactions doesn't export a proper type for the response, using any with explicit check below
+    const createDisputeResponse: any = await broadcastTransaction(disputeTx, network);
+
+    if (createDisputeResponse.error) {
+      await nonceManager.markFailed(senderAddress, nonce);
+
+      logger.error('Failed to broadcast dispute creation transaction', {
+        dispute_id: disputeId,
+        receipt_id,
+        error: createDisputeResponse.error,
+        reason: createDisputeResponse.reason,
+      });
+
+      res.status(500).json({
+        error: 'dispute_broadcast_failed',
+        message: 'Failed to create dispute on-chain',
+        details: createDisputeResponse.reason || createDisputeResponse.error,
+      });
+      return;
+    }
+
+    try {
+      nonceManager.markConfirmed(senderAddress, nonce);
+    } catch (err) {
+      logger.warn('Failed to mark nonce as confirmed (non-critical)', { error: err });
+    }
 
     const insertQuery = `
       INSERT INTO disputes (
@@ -84,7 +279,7 @@ router.post('/', async (req: Request, res: Response) => {
     const values = [
       disputeId,
       receipt_id,
-      receipt.buyer_principal || 'unknown',
+      buyerPrincipal,
       receipt.seller_principal,
       reason,
       'open',
@@ -97,6 +292,7 @@ router.post('/', async (req: Request, res: Response) => {
     logger.info('Dispute created', {
       dispute_id: disputeId,
       receipt_id,
+      on_chain_txid: createDisputeResponse.txid,
       seller_principal: receipt.seller_principal,
       reason,
     });
@@ -106,6 +302,7 @@ router.post('/', async (req: Request, res: Response) => {
       status: 'open',
       created_at: createdAt,
       resolution_deadline: resolutionDeadline,
+      tx_hash: createDisputeResponse.txid,
     });
   } catch (error) {
     logger.error('Failed to create dispute', {
@@ -232,13 +429,17 @@ router.get('/:dispute_id', async (req: Request, res: Response) => {
     res.status(200).json({
       dispute_id: row.dispute_id,
       receipt_id: row.receipt_id,
+      buyer_principal: row.buyer_principal,
+      seller_principal: row.seller_principal,
       status: row.status,
       reason: row.reason,
+      evidence: row.evidence,
       refund_issued: row.refund_amount !== null,
       refund_amount: row.refund_amount ? row.refund_amount.toString() : null,
       refund_txid: row.refund_txid,
       created_at: parseInt(row.created_at, 10),
       resolved_at: row.resolved_at ? parseInt(row.resolved_at, 10) : null,
+      resolution_notes: row.resolution_notes || null,
     });
   } catch (error) {
     logger.error('Failed to get dispute', {
@@ -379,6 +580,23 @@ router.post('/refunds', async (req: Request, res: Response) => {
       return;
     }
 
+    const parsedRefundAmount = parseInt(String(refund_amount), 10);
+    if (!Number.isFinite(parsedRefundAmount) || parsedRefundAmount <= 0) {
+      res.status(400).json({
+        error: 'invalid_refund_amount',
+        message: 'refund_amount must be a positive integer in smallest unit',
+      });
+      return;
+    }
+
+    if (!/^S[TP][0-9A-Z]{38,40}$/.test(buyer_principal)) {
+      res.status(400).json({
+        error: 'invalid_buyer_principal',
+        message: 'buyer_principal must be a valid Stacks principal',
+      });
+      return;
+    }
+
     // Verify dispute exists and is open
     const pool = getPool();
     const disputeResult = await pool.query(
@@ -424,7 +642,7 @@ router.post('/refunds', async (req: Request, res: Response) => {
     const refundAuth = {
       dispute_id,
       receipt_id,
-      refund_amount,
+      refund_amount: parsedRefundAmount.toString(),
       buyer_principal,
       seller_principal: dispute.seller_principal,
       timestamp: parseInt(timestamp, 10),
@@ -458,7 +676,7 @@ router.post('/refunds', async (req: Request, res: Response) => {
     const authValues = [
       dispute_id,
       receipt_id,
-      refund_amount,
+      parsedRefundAmount.toString(),
       buyer_principal,
       dispute.seller_principal,
       timestamp,
@@ -472,7 +690,7 @@ router.post('/refunds', async (req: Request, res: Response) => {
       authorization_id: authResult.rows[0].id,
       dispute_id,
       receipt_id,
-      refund_amount,
+      refund_amount: parsedRefundAmount.toString(),
       buyer_principal,
       seller_principal: dispute.seller_principal,
       timestamp,
@@ -483,7 +701,7 @@ router.post('/refunds', async (req: Request, res: Response) => {
     const {
       makeContractCall,
       broadcastTransaction,
-      bufferCVFromString,
+      bufferCV,
       uintCV,
       principalCV,
       AnchorMode,
@@ -497,6 +715,21 @@ router.post('/refunds', async (req: Request, res: Response) => {
     // Import nonce manager for atomic nonce allocation
     const { nonceManager } = await import('../blockchain/nonce-manager');
     const senderAddress = process.env.SERVICE_PRINCIPAL!;
+    if (dispute.seller_principal !== senderAddress) {
+      res.status(422).json({
+        error: 'seller_principal_mismatch',
+        message: 'Configured seller key does not match dispute seller principal',
+      });
+      return;
+    }
+
+    if (!isUuid(dispute_id) || !isUuid(receipt_id)) {
+      res.status(400).json({
+        error: 'invalid_ids',
+        message: 'dispute_id and receipt_id must be UUIDs',
+      });
+      return;
+    }
 
     // Initialize nonce manager if first use
     if (!(nonceManager as any)._initialized) {
@@ -511,8 +744,8 @@ router.post('/refunds', async (req: Request, res: Response) => {
       contractName,
       functionName: 'execute-refund',
       functionArgs: [
-        bufferCVFromString(dispute_id),
-        uintCV(parseInt(refund_amount, 10)),
+        bufferCV(Buffer.from(dispute_id, 'utf8')),
+        uintCV(parsedRefundAmount),
         principalCV(buyer_principal),
       ],
       senderKey: sellerPrivateKey,
@@ -561,13 +794,13 @@ router.post('/refunds', async (req: Request, res: Response) => {
            refund_txid = $2,
            resolved_at = $3
        WHERE dispute_id = $4`,
-      [refund_amount, refundTxid, Date.now().toString(), dispute_id]
+      [parsedRefundAmount.toString(), refundTxid, Math.floor(Date.now() / 1000), dispute_id]
     );
 
     logger.info('Refund executed on-chain', {
       dispute_id,
       refund_txid: refundTxid,
-      refund_amount,
+      refund_amount: parsedRefundAmount.toString(),
       buyer_principal,
     });
 
@@ -576,7 +809,7 @@ router.post('/refunds', async (req: Request, res: Response) => {
       message: 'Refund authorization verified and executed on-chain',
       dispute_id,
       refund_txid: refundTxid,
-      refund_amount,
+      refund_amount: parsedRefundAmount.toString(),
       buyer_principal,
       seller_principal: dispute.seller_principal,
     });
@@ -593,3 +826,7 @@ router.post('/refunds', async (req: Request, res: Response) => {
 });
 
 export default router;
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}

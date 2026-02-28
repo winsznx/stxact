@@ -34,19 +34,28 @@ router.get('/:principal', async (req: Request, res: Response) => {
     }
 
     // Query database for historical data
+    let deliveryCount = 0;
     const pool = getPool();
-    const dbResult = await pool.query(
-      `SELECT COUNT(*) as delivery_count, SUM(payment_amount) as total_volume
-       FROM reputation_events
-       WHERE seller_principal = $1`,
-      [principal]
-    );
+    try {
+      const dbResult = await pool.query(
+        `SELECT COUNT(*) as delivery_count
+         FROM reputation_events
+         WHERE seller_principal = $1`,
+        [principal]
+      );
+      deliveryCount = parseInt(dbResult.rows[0]?.delivery_count || '0', 10);
+    } catch (dbError) {
+      logger.warn('Reputation events table unavailable, using on-chain-only response', {
+        principal,
+        error: dbError instanceof Error ? dbError.message : 'Unknown error',
+      });
+    }
 
     res.status(200).json({
       principal,
       score: reputationData.score,
       total_volume: reputationData.totalVolume,
-      delivery_count: parseInt(dbResult.rows[0].delivery_count || '0', 10),
+      delivery_count: deliveryCount,
       last_updated: reputationData.lastUpdated,
       on_chain: true,
     });
