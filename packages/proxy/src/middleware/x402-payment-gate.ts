@@ -13,6 +13,7 @@ import { logger } from '../config/logger';
  *
  * Flow:
  * 1. x402-stacks paymentMiddleware handles 402 challenge + payment verification
+ *    (with on-chain tx fallback when facilitator verification is unavailable)
  * 2. stxact payment binding prevents replay attacks
  * 3. stxact request hash computed for idempotency
  * 4. Downstream middleware generates receipt and updates reputation
@@ -61,33 +62,69 @@ export function createX402PaymentGate(config: X402PaymentGateConfig) {
   // Return combined middleware: x402 gate + stxact application layer
   return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      // Run x402 payment verification first
-      await new Promise<void>((resolve, reject) => {
-        x402Middleware(req, res, (error) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve();
-          }
+      let paymentTxid = '';
+      let resolvedAmount = amountMicroSTX;
+      let payerPrincipal: string | null = null;
+      let paymentNetwork = networkCAIP2;
+      let paymentMetadata: ConfirmedTxMetadata | null = null;
+
+      try {
+        // Run x402 payment verification first
+        await new Promise<void>((resolve, reject) => {
+          x402Middleware(req, res, (error) => {
+            if (error) {
+              reject(error);
+            } else {
+              resolve();
+            }
+          });
         });
-      });
 
-      // If we reach here, x402 payment verification succeeded
-      // Now apply stxact application layer logic
+        // If we reach here, x402 payment verification succeeded
+        const payment = getPayment(req);
 
-      // Get payment info from x402-stacks
-      const payment = getPayment(req);
+        if (!payment || !payment.transaction) {
+          logger.error('Payment verification succeeded but no payment data attached');
+          res.status(500).json({
+            error: 'internal_error',
+            message: 'Payment data not found after verification',
+          });
+          return;
+        }
 
-      if (!payment || !payment.transaction) {
-        logger.error('Payment verification succeeded but no payment data attached');
-        res.status(500).json({
-          error: 'internal_error',
-          message: 'Payment data not found after verification',
+        paymentTxid = payment.transaction;
+        const rawAmount = (payment as any).amount;
+        resolvedAmount = rawAmount !== undefined ? String(rawAmount) : amountMicroSTX;
+        payerPrincipal = payment.payer || (payment as any).from || (payment as any).sender || null;
+        paymentNetwork = payment.network || networkCAIP2;
+        paymentMetadata = await fetchConfirmedTxMetadata(paymentTxid);
+      } catch (x402Error) {
+        const fallback = await tryOnChainPaymentFallback(req, {
+          payTo: config.payTo,
+          amountMicroSTX,
+          networkCAIP2,
         });
-        return;
+
+        if (!fallback) {
+          throw x402Error;
+        }
+
+        paymentTxid = fallback.paymentTxid;
+        resolvedAmount = fallback.amount;
+        payerPrincipal = fallback.payer;
+        paymentNetwork = fallback.network;
+        paymentMetadata = fallback.metadata;
+
+        logger.warn('x402 verification failed, recovered via on-chain fallback', {
+          payment_txid: paymentTxid,
+          payer: payerPrincipal,
+          original_error: x402Error instanceof Error ? x402Error.message : 'Unknown error',
+        });
       }
 
-      const paymentTxid = payment.transaction;
+      if (!paymentTxid || !paymentMetadata) {
+        throw new Error('Payment verification completed without transaction metadata');
+      }
 
       // Compute stxact request hash for replay protection
       const now = Math.floor(Date.now() / 1000);
@@ -127,9 +164,11 @@ export function createX402PaymentGate(config: X402PaymentGateConfig) {
       // Store verified payment data for downstream middleware
       (req as any).verifiedPayment = {
         payment_txid: paymentTxid,
-        amount: amountMicroSTX,
-        payer: payment.payer,
-        network: payment.network,
+        amount: resolvedAmount,
+        payer: payerPrincipal,
+        network: paymentNetwork,
+        block_height: paymentMetadata.blockHeight,
+        block_hash: paymentMetadata.blockHash,
       };
       (req as any).requestHash = requestHash;
       (req as any).idempotencyKey = idempotencyKey;
@@ -137,7 +176,7 @@ export function createX402PaymentGate(config: X402PaymentGateConfig) {
       logger.info('Payment verified and bound to request', {
         payment_txid: paymentTxid,
         request_hash: requestHash,
-        payer: payment.payer,
+        payer: payerPrincipal,
       });
 
       // Proceed to next middleware (receipt generation, etc.)
@@ -165,4 +204,116 @@ export function createX402PaymentGate(config: X402PaymentGateConfig) {
       }
     }
   };
+}
+
+interface ConfirmedTxMetadata {
+  blockHeight: number;
+  blockHash: string;
+  senderAddress: string | null;
+  recipientAddress: string | null;
+  amountMicroSTX: string | null;
+}
+
+interface OnChainFallbackResult {
+  paymentTxid: string;
+  amount: string;
+  payer: string | null;
+  network: string;
+  metadata: ConfirmedTxMetadata;
+}
+
+function extractTxidFromPaymentSignature(paymentSignature: string): string | null {
+  try {
+    const decoded = Buffer.from(paymentSignature, 'base64').toString('utf8');
+    const parsed = JSON.parse(decoded) as any;
+    const candidate =
+      parsed?.payload?.transaction ||
+      parsed?.payload?.txid ||
+      parsed?.transaction ||
+      parsed?.txid;
+
+    if (typeof candidate !== 'string' || !candidate.trim()) {
+      return null;
+    }
+
+    return candidate.trim();
+  } catch {
+    return null;
+  }
+}
+
+async function tryOnChainPaymentFallback(
+  req: Request,
+  context: { payTo: string; amountMicroSTX: string; networkCAIP2: string }
+): Promise<OnChainFallbackResult | null> {
+  const paymentSignature = req.get('payment-signature');
+  if (!paymentSignature) {
+    return null;
+  }
+
+  const paymentTxid = extractTxidFromPaymentSignature(paymentSignature);
+  if (!paymentTxid) {
+    throw new Error('Fallback verification failed: payment-signature missing transaction payload');
+  }
+
+  const metadata = await fetchConfirmedTxMetadata(paymentTxid);
+
+  if (!metadata.recipientAddress || !metadata.amountMicroSTX) {
+    throw new Error(
+      'Fallback verification failed: transaction does not expose recipient and amount metadata'
+    );
+  }
+
+  if (metadata.recipientAddress.toUpperCase() !== context.payTo.toUpperCase()) {
+    throw new Error('Fallback verification failed: payment recipient does not match configured payTo');
+  }
+
+  if (BigInt(metadata.amountMicroSTX) < BigInt(context.amountMicroSTX)) {
+    throw new Error('Fallback verification failed: payment amount is below required minimum');
+  }
+
+  return {
+    paymentTxid,
+    amount: metadata.amountMicroSTX,
+    payer: metadata.senderAddress,
+    network: context.networkCAIP2,
+    metadata,
+  };
+}
+
+async function fetchConfirmedTxMetadata(paymentTxid: string): Promise<ConfirmedTxMetadata> {
+  const txid = paymentTxid.startsWith('0x') ? paymentTxid : `0x${paymentTxid}`;
+  const stacksApiUrl = process.env.STACKS_API_URL || 'https://api.testnet.hiro.so';
+  const axios = await import('axios');
+
+  const response = await axios.default.get(
+    `${stacksApiUrl}/extended/v1/tx/${txid}`,
+    { timeout: 10000 }
+  );
+
+  const txData = response.data || {};
+  const blockHeight = Number(txData?.block_height || 0);
+  const blockHash = String(txData?.block_hash || '');
+  const txStatus = String(txData?.tx_status || '');
+  const senderAddress = typeof txData?.sender_address === 'string' ? txData.sender_address : null;
+  const txType = typeof txData?.tx_type === 'string' ? txData.tx_type : '';
+
+  let recipientAddress: string | null = null;
+  let amountMicroSTX: string | null = null;
+  if (txType === 'token_transfer') {
+    recipientAddress =
+      typeof txData?.token_transfer?.recipient_address === 'string'
+        ? txData.token_transfer.recipient_address
+        : null;
+    amountMicroSTX =
+      txData?.token_transfer?.amount !== undefined && txData?.token_transfer?.amount !== null
+        ? String(txData.token_transfer.amount)
+        : null;
+  }
+
+  if (txStatus !== 'success' || !blockHeight || !blockHash) {
+    throw new Error('Payment transaction is not confirmed with valid block metadata');
+  }
+
+  return { blockHeight, blockHash, senderAddress, recipientAddress, amountMicroSTX };
 }
