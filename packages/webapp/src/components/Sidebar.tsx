@@ -1,39 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-    Home,
-    Search,
-    Receipt,
-    AlertCircle,
-    LayoutDashboard,
-    Menu,
-    X,
     Wallet,
     LogOut,
     ChevronLeft,
     ChevronRight,
 } from 'lucide-react';
 import { useWallet } from '@/hooks/useWallet';
-
-interface NavItem {
-    name: string;
-    href: string;
-    icon: React.ComponentType<{ className?: string }>;
-}
-
-const navItems: NavItem[] = [
-    { name: 'Directory', href: '/directory', icon: Search },
-    { name: 'Receipts', href: '/receipts', icon: Receipt },
-    { name: 'Disputes', href: '/disputes', icon: AlertCircle },
-    { name: 'Dashboard', href: '/seller', icon: LayoutDashboard },
-];
+import { appNavigation } from '@/lib/navigation';
 
 export function Sidebar() {
     const [isOpen, setIsOpen] = useState(true);
-    const [isMobileOpen, setIsMobileOpen] = useState(false);
     const pathname = usePathname();
     const { address, balance, disconnect } = useWallet();
 
@@ -41,18 +21,14 @@ export function Sidebar() {
         setIsOpen(!isOpen);
     };
 
-    const toggleMobileSidebar = () => {
-        setIsMobileOpen(!isMobileOpen);
-    };
-
-    const closeMobileSidebar = () => {
-        setIsMobileOpen(false);
-    };
-
-    const isActive = (href: string) => {
-        if (href === '/') return pathname === '/';
-        return pathname?.startsWith(href);
-    };
+    const activeHref = useMemo(() => {
+        if (!pathname) return '';
+        const sortedLinks = [...appNavigation].sort((a, b) => b.href.length - a.href.length);
+        const match = sortedLinks.find(
+            ({ href }) => pathname === href || (href !== '/' && pathname.startsWith(`${href}/`))
+        );
+        return match?.href || '';
+    }, [pathname]);
 
     const formatAddress = (addr: string) => {
         return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -65,36 +41,13 @@ export function Sidebar() {
 
     return (
         <>
-            {/* Mobile Menu Button */}
-            <button
-                onClick={toggleMobileSidebar}
-                className="fixed left-4 top-4 z-50 glass rounded-none p-2 lg:hidden"
-                aria-label="Toggle menu"
-            >
-                {isMobileOpen ? (
-                    <X className="h-6 w-6" />
-                ) : (
-                    <Menu className="h-6 w-6" />
-                )}
-            </button>
-
-            {/* Mobile Overlay */}
-            {isMobileOpen && (
-                <div
-                    className="fixed inset-0 z-30 bg-black/50 backdrop-blur-sm lg:hidden"
-                    onClick={closeMobileSidebar}
-                />
-            )}
-
             {/* Sidebar */}
             <aside
                 className={`
-          fixed left-0 top-0 z-40 h-screen
+          fixed left-0 top-0 z-40 hidden h-screen lg:block
           glass-strong border-r border-strong
           transition-all duration-300 ease-in-out
           ${isOpen ? 'w-64' : 'w-20'}
-          ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}
-          lg:translate-x-0
         `}
             >
                 <div className="flex h-full flex-col">
@@ -118,15 +71,14 @@ export function Sidebar() {
 
                     {/* Navigation */}
                     <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-                        {navItems.map((item) => {
+                        {appNavigation.map((item) => {
                             const Icon = item.icon;
-                            const active = isActive(item.href);
+                            const active = activeHref === item.href;
 
                             return (
                                 <Link
                                     key={item.href}
                                     href={item.href}
-                                    onClick={closeMobileSidebar}
                                     className={`
                     flex items-center gap-3 rounded-none px-3 py-2.5
                     transition-all duration-200

@@ -27,7 +27,13 @@ export function useCreateDispute() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (data: { receipt_id: string; reason: string; evidence?: Record<string, unknown> }) =>
+    mutationFn: (data: {
+      receipt_id: string;
+      reason: string;
+      evidence?: Record<string, unknown>;
+      buyer_signature?: string;
+      timestamp?: number;
+    }) =>
       api.createDispute(data),
     onSuccess: () => {
       // Invalidate disputes list to refetch
@@ -46,6 +52,18 @@ export function useUpdateDispute() {
       // Invalidate both the specific dispute and the list
       queryClient.invalidateQueries({ queryKey: ['dispute', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['disputes'] });
+    },
+  });
+}
+
+export function useSubmitRefundAuthorization() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: api.submitRefundAuthorization,
+    onSuccess: (_result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['disputes'] });
+      queryClient.invalidateQueries({ queryKey: ['dispute', variables.dispute_id] });
     },
   });
 }
