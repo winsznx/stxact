@@ -98,7 +98,7 @@ export function signReceipt(
     privateKey: privateKeyObj,
   });
 
-  return Buffer.from(signature.data).toString('base64');
+  return Buffer.from(signature.data, 'hex').toString('base64');
 }
 
 /**
@@ -239,7 +239,7 @@ export function signRefundAuthorization(
     privateKey: privateKeyObj,
   });
 
-  return Buffer.from(signature.data).toString('base64');
+  return Buffer.from(signature.data, 'hex').toString('base64');
 }
 
 /**

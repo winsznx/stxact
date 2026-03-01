@@ -13,8 +13,20 @@ import { getPool } from '../../src/storage/db';
 
 describe('Payment Flow Integration', () => {
   const testEndpoint = '/demo/premium-data';
+  const buyerPrincipal = 'ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG';
   let paymentTxid: string;
   let requestHash: string;
+
+  function createPaymentSignature(overrides: Record<string, unknown> = {}) {
+    return Buffer.from(
+      JSON.stringify({
+        txid: paymentTxid,
+        amount: '100000',
+        payer: buyerPrincipal,
+        ...overrides,
+      })
+    ).toString('base64');
+  }
 
   beforeEach(async () => {
     // Clean up test data
@@ -75,15 +87,15 @@ describe('Payment Flow Integration', () => {
       expect(response.headers['payment-required']).toBeDefined();
     });
 
-    // Note: Full payment verification requires x402-stacks facilitator integration
-    // In production, this would test actual facilitator communication
-    test.skip('should accept valid payment-signature and verify with facilitator', async () => {
-      // This test requires:
-      // 1. Mocking x402-stacks facilitator responses
-      // 2. Valid Stacks transaction signature
-      // 3. Integration with testnet or mock blockchain
-      //
-      // Implementation deferred to E2E testing with real facilitator
+    test('should accept valid payment-signature and verify with facilitator', async () => {
+      const response = await request(app)
+        .get(testEndpoint)
+        .set('payment-signature', createPaymentSignature())
+        .expect(200);
+
+      expect(response.body.payment_info.txid).toBe(paymentTxid);
+      expect(response.body.payment_info.payer).toBe(buyerPrincipal);
+      expect(response.headers['x-stxact-receipt']).toBeDefined();
     });
   });
 
@@ -125,25 +137,25 @@ describe('Payment Flow Integration', () => {
   });
 
   describe('Flow 4: Receipt Generation', () => {
-    test.skip('should generate cryptographic receipt after successful payment', async () => {
-      // #given: User has valid payment
-      // (Requires mocking x402 facilitator verification)
+    test('should generate cryptographic receipt after successful payment', async () => {
+      const response = await request(app)
+        .get(testEndpoint)
+        .set('payment-signature', createPaymentSignature())
+        .expect(200);
 
-      // #when: Payment verified
+      expect(response.headers['x-stxact-receipt-id']).toBeDefined();
+      expect(response.headers['x-stxact-receipt']).toBeDefined();
+      expect(response.headers['x-stxact-signature']).toBeDefined();
 
-      // #then: Response should include receipt headers
-      // expect(response.headers['x-stxact-receipt-id']).toBeDefined();
-      // expect(response.headers['x-stxact-receipt']).toBeDefined();
-      // expect(response.headers['x-stxact-signature']).toBeDefined();
+      const receipt = JSON.parse(
+        Buffer.from(response.headers['x-stxact-receipt'], 'base64').toString()
+      );
 
-      // Decode and verify receipt structure
-      // const receipt = JSON.parse(
-      //   Buffer.from(response.headers['x-stxact-receipt'], 'base64').toString()
-      // );
-      // expect(receipt.receipt_id).toBeDefined();
-      // expect(receipt.payment_txid).toBe(paymentTxid);
-      // expect(receipt.seller_principal).toBe(process.env.SERVICE_PRINCIPAL);
-      // expect(receipt.signature).toBeDefined();
+      expect(receipt.receipt_id).toBe(response.headers['x-stxact-receipt-id']);
+      expect(receipt.payment_txid).toBe(paymentTxid);
+      expect(receipt.buyer_principal).toBe(buyerPrincipal);
+      expect(receipt.seller_principal).toBe(process.env.SERVICE_PRINCIPAL);
+      expect(receipt.signature).toBe(response.headers['x-stxact-signature']);
     });
 
     test('should store receipt in database with permanent retention', async () => {
@@ -198,6 +210,25 @@ describe('Payment Flow Integration', () => {
   });
 
   describe('Flow 5: Receipt Verification (Public Endpoint)', () => {
+    test('should verify a generated receipt from the x402 payment flow', async () => {
+      const paidResponse = await request(app)
+        .get(testEndpoint)
+        .set('payment-signature', createPaymentSignature())
+        .expect(200);
+
+      const receipt = JSON.parse(
+        Buffer.from(paidResponse.headers['x-stxact-receipt'], 'base64').toString()
+      );
+
+      const verifyResponse = await request(app)
+        .post('/receipts/verify')
+        .send({ receipt })
+        .expect(200);
+
+      expect(verifyResponse.body.valid).toBe(true);
+      expect(verifyResponse.body.checks.signature_valid).toBe(true);
+    });
+
     test('should verify valid receipt signature', async () => {
       // #given: User has receipt
       const receipt = {
@@ -263,15 +294,22 @@ describe('Payment Flow Integration', () => {
   });
 
   describe('Flow 6: Idempotency (Cached Responses)', () => {
-    test.skip('should return cached response for duplicate request within TTL', async () => {
-      // #given: Request processed successfully
-      // (Requires mocking payment flow)
+    test('should recover when facilitator verification is unavailable by using on-chain fallback', async () => {
+      const response = await request(app)
+        .get(testEndpoint)
+        .set(
+          'payment-signature',
+          createPaymentSignature({ simulateFacilitatorFailure: true })
+        )
+        .expect(200);
 
-      // #when: Same request retried within 5 minutes with same idempotency key
+      const receipt = JSON.parse(
+        Buffer.from(response.headers['x-stxact-receipt'], 'base64').toString()
+      );
 
-      // #then: Should return cached response without reprocessing
-      // expect(response.status).toBe(200);
-      // expect(response.headers['x-stxact-receipt-id']).toBe(firstReceiptId);
+      expect(response.body.payment_info.txid).toBe(paymentTxid);
+      expect(receipt.payment_txid).toBe(paymentTxid);
+      expect(receipt.block_hash).toBe(`block-${paymentTxid}`);
     });
   });
 });

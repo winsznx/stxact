@@ -5,7 +5,7 @@ describe('NonceManager', () => {
   const testAddress = 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM';
   const network = new StacksTestnet();
 
-  beforeAll(async () => {
+  beforeEach(async () => {
     await nonceManager.initialize(network);
   });
 

@@ -78,6 +78,7 @@ router.post('/verify', async (req: Request, res: Response) => {
 
     res.status(200).json({
       valid,
+      seller_principal: receipt.seller_principal,
       checks: {
         signature_valid: signatureValid,
         principal_match: signatureValid,
