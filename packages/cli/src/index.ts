@@ -7,7 +7,22 @@ import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import { homedir } from 'os';
 import path from 'path';
-import { createStacksPrivateKey, signMessageHashRsv } from '@stacks/transactions';
+import { StacksMainnet, StacksTestnet } from '@stacks/network';
+import {
+  AnchorMode,
+  PostConditionMode,
+  TransactionVersion,
+  bufferCVFromString,
+  createStacksPrivateKey,
+  getAddressFromPrivateKey,
+  makeContractCall,
+  makeSTXTokenTransfer,
+  noneCV,
+  principalCV,
+  signMessageHashRsv,
+  someCV,
+  uintCV,
+} from '@stacks/transactions';
 
 type VerificationChecks = {
   signature_valid: boolean;
@@ -28,7 +43,6 @@ type ReceiptPayload = {
 };
 
 const API_BASE_URL = process.env.STXACT_API_URL || 'http://localhost:3001';
-const DEFAULT_FACILITATOR_URL = 'https://facilitator.stacksx402.com';
 const SUPPORTED_CURL_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS']);
 
 interface CurlCommandOptions {
@@ -63,14 +77,24 @@ interface ListServicesCommandOptions {
   format?: string;
 }
 
-interface X402StacksModule {
-  privateKeyToAccount: (privateKey: string, network: 'mainnet' | 'testnet') => unknown;
-  wrapAxiosWithPayment: (
-    client: AxiosInstance,
-    account: unknown,
-    config?: Record<string, unknown>
-  ) => AxiosInstance;
-}
+type PaymentRequirement = {
+  network: string;
+  asset: string;
+  amount: string;
+  payTo: string;
+};
+
+type PaymentRequiredResponse = {
+  x402Version: number;
+  resource?: Record<string, unknown>;
+  accepts: PaymentRequirement[];
+};
+
+type WalletAccount = {
+  address: string;
+  privateKey: string;
+  network: 'mainnet' | 'testnet';
+};
 
 function parseHeaders(headers: string[]): Record<string, string> {
   return headers.reduce<Record<string, string>>((acc, header) => {
@@ -176,10 +200,6 @@ async function loadWalletPrivateKey(walletPath: string): Promise<string> {
   }
 }
 
-async function loadX402Module(): Promise<X402StacksModule> {
-  return (await import('x402-stacks')) as unknown as X402StacksModule;
-}
-
 function getStacksNetwork(): 'mainnet' | 'testnet' {
   const value = (
     process.env.STXACT_STACKS_NETWORK ||
@@ -247,6 +267,237 @@ function sleep(ms: number): Promise<void> {
   });
 }
 
+function getWalletAccount(privateKey: string): WalletAccount {
+  const network = getStacksNetwork();
+  const transactionVersion =
+    network === 'mainnet' ? TransactionVersion.Mainnet : TransactionVersion.Testnet;
+
+  return {
+    address: getAddressFromPrivateKey(privateKey, transactionVersion),
+    privateKey,
+    network,
+  };
+}
+
+function getConfiguredStacksApiUrl(network: 'mainnet' | 'testnet'): string | undefined {
+  if (process.env.STXACT_STACKS_API_URL) {
+    return process.env.STXACT_STACKS_API_URL;
+  }
+
+  const sharedOverride = process.env.STACKS_API_URL;
+  if (sharedOverride) {
+    return sharedOverride;
+  }
+
+  return network === 'mainnet'
+    ? process.env.STXACT_STACKS_MAINNET_API_URL
+    : process.env.STXACT_STACKS_TESTNET_API_URL;
+}
+
+function createStacksNetworkClient(network: 'mainnet' | 'testnet') {
+  const apiUrl = getConfiguredStacksApiUrl(network);
+  if (network === 'mainnet') {
+    return new StacksMainnet(apiUrl ? { url: apiUrl } : undefined);
+  }
+
+  return new StacksTestnet(apiUrl ? { url: apiUrl } : undefined);
+}
+
+function parsePaymentRequiredResponse(response: AxiosResponse): PaymentRequiredResponse | null {
+  const headerValue = getHeaderValue(response.headers, 'payment-required');
+  if (headerValue) {
+    try {
+      const decoded = Buffer.from(headerValue, 'base64').toString('utf8');
+      return JSON.parse(decoded) as PaymentRequiredResponse;
+    } catch {
+      return null;
+    }
+  }
+
+  if (
+    response.data &&
+    typeof response.data === 'object' &&
+    (response.data as PaymentRequiredResponse).x402Version === 2 &&
+    Array.isArray((response.data as PaymentRequiredResponse).accepts)
+  ) {
+    return response.data as PaymentRequiredResponse;
+  }
+
+  return null;
+}
+
+function normalizeAssetSymbol(asset: string): 'STX' | 'SBTC' | 'USDCX' | 'UNKNOWN' {
+  const normalized = asset.toUpperCase();
+
+  if (normalized === 'STX' || normalized.includes(':SLIP44:5757')) {
+    return 'STX';
+  }
+
+  if (normalized.includes('SBTC') || normalized.includes('/SBTC') || normalized.includes(':BTC')) {
+    return 'SBTC';
+  }
+
+  if (normalized.includes('USDCX') || normalized.includes('/USDCX')) {
+    return 'USDCX';
+  }
+
+  return 'UNKNOWN';
+}
+
+function selectPaymentRequirement(
+  paymentRequired: PaymentRequiredResponse,
+  account: WalletAccount,
+  preferredToken: string | undefined
+): PaymentRequirement | null {
+  const preferredAsset = preferredToken?.trim().toUpperCase();
+
+  const compatibleOptions = paymentRequired.accepts.filter((option) => {
+    const optionNetwork =
+      option.network === 'stacks:1'
+        ? 'mainnet'
+        : option.network === 'stacks:2147483648'
+          ? 'testnet'
+          : null;
+
+    return optionNetwork === account.network;
+  });
+
+  if (!compatibleOptions.length) {
+    return null;
+  }
+
+  if (!preferredAsset) {
+    return compatibleOptions[0];
+  }
+
+  return (
+    compatibleOptions.find((option) => normalizeAssetSymbol(option.asset) === preferredAsset) ||
+    compatibleOptions[0]
+  );
+}
+
+function getDefaultTokenContract(
+  asset: 'SBTC' | 'USDCX',
+  network: 'mainnet' | 'testnet'
+): { address: string; name: string } {
+  if (asset === 'SBTC') {
+    return network === 'mainnet'
+      ? { address: 'SM3VDXK3WZZSA84XXFKAFAF15NNZX32CTSG82JFQ4', name: 'sbtc-token' }
+      : { address: 'ST1F7QA2MDF17S807EPA36TSS8AMEFY4KA9TVGWXT', name: 'sbtc-token' };
+  }
+
+  return network === 'mainnet'
+    ? { address: 'SP120SBRBQJ00MCWS7TM5R8WJNTTKD5K0HFRC2CNE', name: 'usdcx' }
+    : { address: 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM', name: 'usdcx' };
+}
+
+async function signPaymentRequirement(
+  requirement: PaymentRequirement,
+  account: WalletAccount
+): Promise<string> {
+  const network = createStacksNetworkClient(account.network);
+  const amount = BigInt(requirement.amount);
+  const asset = normalizeAssetSymbol(requirement.asset);
+  const memo = `x402:${Date.now().toString(36)}`.slice(0, 34);
+
+  if (asset === 'STX') {
+    const transaction = await makeSTXTokenTransfer({
+      recipient: requirement.payTo,
+      amount,
+      senderKey: account.privateKey,
+      network,
+      memo,
+      anchorMode: AnchorMode.Any,
+    });
+
+    return Buffer.from(transaction.serialize()).toString('hex');
+  }
+
+  if (asset === 'SBTC' || asset === 'USDCX') {
+    const tokenContract = getDefaultTokenContract(asset, account.network);
+    const transaction = await makeContractCall({
+      contractAddress: tokenContract.address,
+      contractName: tokenContract.name,
+      functionName: 'transfer',
+      functionArgs: [
+        uintCV(amount.toString()),
+        principalCV(account.address),
+        principalCV(requirement.payTo),
+        memo ? someCV(bufferCVFromString(memo)) : noneCV(),
+      ],
+      senderKey: account.privateKey,
+      network,
+      anchorMode: AnchorMode.Any,
+      postConditionMode: PostConditionMode.Allow,
+    });
+
+    return Buffer.from(transaction.serialize()).toString('hex');
+  }
+
+  throw new Error(`Unsupported payment asset "${requirement.asset}"`);
+}
+
+async function executePaymentRetry(
+  client: AxiosInstance,
+  url: string,
+  method: string,
+  headers: Record<string, string>,
+  body: string | undefined,
+  response402: AxiosResponse,
+  walletPath: string,
+  token: string | undefined,
+  verbose: boolean
+): Promise<AxiosResponse> {
+  const paymentRequired = parsePaymentRequiredResponse(response402);
+  if (!paymentRequired) {
+    throw new Error('Server returned 402 without a valid x402 payment request');
+  }
+
+  const privateKey = await loadWalletPrivateKey(walletPath);
+  const account = getWalletAccount(privateKey);
+  const selectedRequirement = selectPaymentRequirement(paymentRequired, account, token);
+
+  if (!selectedRequirement) {
+    throw new Error(
+      `No compatible payment option found for ${account.network}. Available networks: ${paymentRequired.accepts
+        .map((option) => option.network)
+        .join(', ')}`
+    );
+  }
+
+  const signedTransaction = await signPaymentRequirement(selectedRequirement, account);
+  const paymentPayload = {
+    x402Version: 2,
+    resource: paymentRequired.resource,
+    accepted: selectedRequirement,
+    payload: {
+      transaction: signedTransaction,
+    },
+  };
+
+  const paymentHeaders = {
+    ...headers,
+    'payment-signature': Buffer.from(JSON.stringify(paymentPayload)).toString('base64'),
+  };
+
+  if (verbose) {
+    console.error(`retrying with x402 payment (${normalizeAssetSymbol(selectedRequirement.asset)})`);
+  }
+
+  return executeRequestWithRetry(
+    () =>
+      client.request({
+        method,
+        url,
+        headers: paymentHeaders,
+        data: body,
+      }),
+    method,
+    paymentHeaders,
+    verbose
+  );
+}
+
 function hasIdempotencyKey(headers: Record<string, string>): boolean {
   return Object.keys(headers).some((key) => key.toLowerCase() === 'x-idempotency-key');
 }
@@ -287,6 +538,23 @@ async function executeRequestWithRetry(
 
       return response;
     } catch (error) {
+      if (error instanceof AxiosError && error.response) {
+        const response = error.response;
+        if (response.status >= 500 && response.status <= 599 && attempt < maxAttempts) {
+          const backoffMs = 250 * 2 ** (attempt - 1);
+          if (verbose) {
+            console.error(
+              `received HTTP ${response.status}, retrying attempt ${attempt + 1}/${maxAttempts} in ${backoffMs}ms`
+            );
+          }
+          await sleep(backoffMs);
+          attempt += 1;
+          continue;
+        }
+
+        return response;
+      }
+
       const isNetworkFailure = error instanceof AxiosError && !error.response;
       if (!isNetworkFailure || attempt >= maxAttempts) {
         throw error;
@@ -306,30 +574,9 @@ async function createPaidAxiosClient(
   walletPath: string | undefined,
   token: string | undefined
 ): Promise<AxiosInstance> {
-  const baseClient = axios.create({ validateStatus: () => true });
-  if (!walletPath) {
-    return baseClient;
-  }
-
-  const privateKey = await loadWalletPrivateKey(walletPath);
-  const network = getStacksNetwork();
-  const facilitatorUrl =
-    process.env.STXACT_FACILITATOR_URL ||
-    process.env.X402_FACILITATOR_URL ||
-    DEFAULT_FACILITATOR_URL;
-
-  const x402Stacks = await loadX402Module();
-  const account = x402Stacks.privateKeyToAccount(privateKey, network);
-
-  const wrapperConfig: Record<string, unknown> = {
-    facilitatorUrl,
-  };
-  if (token) {
-    wrapperConfig.preferredToken = token;
-    wrapperConfig.token = token;
-  }
-
-  return x402Stacks.wrapAxiosWithPayment(baseClient, account, wrapperConfig);
+  void walletPath;
+  void token;
+  return axios.create();
 }
 
 function signCanonicalMessage(message: string, privateKey: string): string {
@@ -398,19 +645,32 @@ program
         }
       }
 
-      const response = await executeRequestWithRetry(
+      let response = await executeRequestWithRetry(
         () =>
           client.request({
             method,
             url,
             headers,
             data: options.body,
-            validateStatus: () => true,
           }),
         method,
         headers,
         Boolean(options.verbose)
       );
+
+      if (response.status === 402 && options.wallet) {
+        response = await executePaymentRetry(
+          client,
+          url,
+          method,
+          headers,
+          options.body,
+          response,
+          options.wallet,
+          options.token,
+          Boolean(options.verbose)
+        );
+      }
 
       if (!options.wallet && response.status === 402) {
         throw new Error('Endpoint requires payment (402). Re-run with --wallet <path> to auto-pay.');
@@ -454,6 +714,27 @@ program
     }
   });
 
+function extractReceiptPayload(value: unknown): ReceiptPayload | null {
+  if (!value || typeof value !== 'object') {
+    return null;
+  }
+
+  const directReceipt = value as ReceiptPayload;
+  if (typeof directReceipt.receipt_id === 'string') {
+    return directReceipt;
+  }
+
+  const envelopeReceipt = (value as { receipt?: unknown }).receipt;
+  if (envelopeReceipt && typeof envelopeReceipt === 'object') {
+    const candidate = envelopeReceipt as ReceiptPayload;
+    if (typeof candidate.receipt_id === 'string') {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
 program
   .command('verify-receipt')
   .argument('<receiptFile>', 'path to receipt JSON file')
@@ -462,7 +743,13 @@ program
   .option('--bns', 'validate BNS ownership')
   .action(async (receiptFile: string, options: VerifyReceiptCommandOptions) => {
     try {
-      const receipt = await readJsonFile<ReceiptPayload>(receiptFile);
+      const receiptFilePayload = await readJsonFile<unknown>(receiptFile);
+      const receipt = extractReceiptPayload(receiptFilePayload);
+      if (!receipt) {
+        throw new Error(
+          'Receipt file must contain either a receipt object or a stxact curl output with a top-level "receipt" field'
+        );
+      }
 
       const params = new URLSearchParams();
       if (options.onChain) params.set('on_chain', 'true');
