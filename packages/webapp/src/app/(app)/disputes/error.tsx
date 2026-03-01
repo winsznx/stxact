@@ -26,7 +26,7 @@ export default function DisputesError({
         </h2>
 
         <p className="mb-6 text-sm text-foreground-muted">
-          We couldn't load the disputes list. Please try again.
+          We could not load the disputes list. Please try again.
         </p>
 
         <button

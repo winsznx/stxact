@@ -1,18 +1,19 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AppConfig, UserSession } from '@stacks/connect';
+import { AppConfig, UserSession, type UserData } from '@stacks/connect';
 import { Connect, useConnect } from '@stacks/connect-react';
+import { useHydrated } from '@/hooks/useHydrated';
 
 interface WalletContextType {
-    address: string | null;
-    userData: any | null;
-    balance: string | null;
-    isConnected: boolean;
-    isConnecting: boolean;
-    connect: () => void;
-    disconnect: () => void;
+  address: string | null;
+  userData: UserData | null;
+  balance: string | null;
+  isConnected: boolean;
+  isConnecting: boolean;
+  connect: () => void;
+  disconnect: () => void;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -20,140 +21,143 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 const appConfig = new AppConfig(['store_write', 'publish_data']);
 
 function getSession() {
-    if (typeof window !== 'undefined') {
-        return new UserSession({ appConfig });
-    }
-    return undefined;
+  if (typeof window !== 'undefined') {
+    return new UserSession({ appConfig });
+  }
+  return undefined;
+}
+
+function getAddressFromUserData(userData: UserData) {
+  const isMainnet = process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet';
+  const profile = userData.profile as {
+    stxAddress?: {
+      mainnet?: string;
+      testnet?: string;
+    };
+  };
+
+  return isMainnet ? profile.stxAddress?.mainnet ?? null : profile.stxAddress?.testnet ?? null;
 }
 
 function WalletStateProvider({ children }: { children: React.ReactNode }) {
-    const { authenticate, userSession } = useConnect();
-    const router = useRouter();
-    const [address, setAddress] = useState<string | null>(null);
-    const [userData, setUserData] = useState<any | null>(null);
-    const [balance, setBalance] = useState<string | null>(null);
-    const [isConnecting, setIsConnecting] = useState(false);
+  const { authenticate, userSession } = useConnect();
+  const router = useRouter();
+  const [balance, setBalance] = useState<string | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
 
-    const fetchBalance = useCallback(async (addr: string) => {
-        try {
-            const apiUrl = process.env.NEXT_PUBLIC_STACKS_API_URL || 'https://api.testnet.hiro.so';
-            const response = await fetch(`${apiUrl}/extended/v1/address/${addr}/balances`);
-            const data = await response.json();
-            setBalance(data.stx.balance);
-        } catch (error) {
-            console.error('Failed to fetch balance:', error);
+  const userData = useMemo<UserData | null>(() => {
+    if (!userSession?.isUserSignedIn()) {
+      return null;
+    }
+
+    return userSession.loadUserData();
+  }, [userSession]);
+
+  const address = useMemo(() => (userData ? getAddressFromUserData(userData) : null), [userData]);
+
+  useEffect(() => {
+    if (!address) {
+      return undefined;
+    }
+
+    let active = true;
+
+    const fetchBalance = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_STACKS_API_URL || 'https://api.testnet.hiro.so';
+        const response = await fetch(`${apiUrl}/extended/v1/address/${address}/balances`);
+        const data = (await response.json()) as {
+          stx?: {
+            balance?: string;
+          };
+        };
+
+        if (active) {
+          setBalance(data.stx?.balance ?? null);
         }
-    }, []);
-
-    const syncState = useCallback((sessionOverride?: UserSession) => {
-        const session = sessionOverride || userSession;
-        if (session && session.isUserSignedIn()) {
-            const data = session.loadUserData();
-            setUserData(data);
-            const isMainnet = process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet';
-            const addr = isMainnet ? data.profile.stxAddress.mainnet : data.profile.stxAddress.testnet;
-            setAddress(addr);
-            fetchBalance(addr);
-        } else {
-            setAddress(null);
-            setUserData(null);
-            setBalance(null);
-        }
-    }, [userSession, fetchBalance]);
-
-    useEffect(() => {
-        syncState();
-    }, [syncState]);
-
-    const connect = () => {
-        setIsConnecting(true);
-        authenticate({
-            onFinish: (payload) => {
-                // Use the session from payload as it's guaranteed to be fresh
-                const session = payload.userSession || userSession;
-                syncState(session);
-
-                // Redirect to dashboard if successful
-                if (session && session.isUserSignedIn()) {
-                    router.push('/seller');
-                }
-                setIsConnecting(false);
-            },
-            onCancel: () => {
-                setIsConnecting(false);
-            },
-            appDetails: {
-                name: 'stxact',
-                icon: typeof window !== 'undefined' ? window.location.origin + '/favicon.png' : '/favicon.png',
-            },
-        });
+      } catch (error) {
+        console.error('Failed to fetch balance:', error);
+      }
     };
 
-    const disconnect = () => {
-        if (userSession) {
-            userSession.signUserOut();
+    void fetchBalance();
+
+    return () => {
+      active = false;
+    };
+  }, [address]);
+
+  const connect = () => {
+    setIsConnecting(true);
+    authenticate({
+      onFinish: (payload) => {
+        const session = payload.userSession || userSession;
+        if (session?.isUserSignedIn()) {
+          router.push('/seller');
         }
-        syncState();
         setIsConnecting(false);
-    };
+      },
+      onCancel: () => {
+        setIsConnecting(false);
+      },
+      appDetails: {
+        name: 'stxact',
+        icon: typeof window !== 'undefined' ? `${window.location.origin}/favicon.png` : '/favicon.png',
+      },
+    });
+  };
 
-    const value = {
-        address,
-        userData,
-        balance,
-        isConnected: !!address,
-        isConnecting,
-        connect,
-        disconnect,
-    };
+  const disconnect = () => {
+    userSession?.signUserOut();
+    setIsConnecting(false);
+  };
 
-    return (
-        <WalletContext.Provider value={value}>
-            {children}
-        </WalletContext.Provider>
-    );
+  const value = {
+    address,
+    userData,
+    balance: address ? balance : null,
+    isConnected: !!address,
+    isConnecting,
+    connect,
+    disconnect,
+  };
+
+  return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
 }
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-    const [session, setSession] = useState<UserSession | undefined>(undefined);
-    const [mounted, setMounted] = useState(false);
+  const hydrated = useHydrated();
+  const [session] = useState<UserSession | undefined>(() => getSession());
 
-    useEffect(() => {
-        setMounted(true);
-        setSession(getSession());
-    }, []);
+  if (!hydrated || !session) return <>{children}</>;
 
-    if (!mounted || !session) return <>{children}</>;
+  const authOptions = {
+    appDetails: {
+      name: 'stxact',
+      icon: typeof window !== 'undefined' ? `${window.location.origin}/favicon.png` : '/favicon.png',
+    },
+    userSession: session,
+  };
 
-    const authOptions = {
-        appDetails: {
-            name: 'stxact',
-            icon: typeof window !== 'undefined' ? window.location.origin + '/favicon.png' : '/favicon.png',
-        },
-        userSession: session,
-    };
-
-    return (
-        <Connect authOptions={authOptions}>
-            <WalletStateProvider>
-                {children}
-            </WalletStateProvider>
-        </Connect>
-    );
+  return (
+    <Connect authOptions={authOptions}>
+      <WalletStateProvider>{children}</WalletStateProvider>
+    </Connect>
+  );
 }
 
 export function useWallet() {
-    const context = useContext(WalletContext);
-    if (context === undefined) {
-        return {
-            address: null,
-            userData: null,
-            balance: null,
-            isConnected: false,
-            isConnecting: false,
-            connect: () => { },
-            disconnect: () => { },
-        };
-    }
-    return context;
+  const context = useContext(WalletContext);
+  if (context === undefined) {
+    return {
+      address: null,
+      userData: null,
+      balance: null,
+      isConnected: false,
+      isConnecting: false,
+      connect: () => {},
+      disconnect: () => {},
+    };
+  }
+  return context;
 }

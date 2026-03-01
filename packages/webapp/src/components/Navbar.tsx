@@ -4,8 +4,9 @@ import Link from 'next/link';
 import { Moon, Sun, Menu, X } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { useHydrated } from '@/hooks/useHydrated';
 import type { NavItem } from '@/lib/navigation';
 
 const WalletButton = dynamic(
@@ -26,13 +27,14 @@ export function Navbar({
 }: NavbarProps) {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
-  const [mounted, setMounted] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  useEffect(() => {
-    // Intentional: Prevents SSR hydration mismatch with theme toggle
-    setMounted(true);
-  }, []);
+  const hydrated = useHydrated();
+  const [mobileMenuState, setMobileMenuState] = useState<{
+    open: boolean;
+    pathname: string | null;
+  }>({
+    open: false,
+    pathname: null,
+  });
 
   const activeHref = useMemo(() => {
     if (!pathname) return '';
@@ -45,10 +47,24 @@ export function Navbar({
 
   const hasMobileMenu = links.length > 0 || showWalletButton;
   const mobileMenuVisibilityClass = showDesktopLinks ? 'md:hidden' : 'lg:hidden';
+  const mobileMenuOpen = mobileMenuState.open && mobileMenuState.pathname === pathname;
 
-  useEffect(() => {
-    setMobileMenuOpen(false);
-  }, [pathname]);
+  const toggleMobileMenu = () => {
+    setMobileMenuState((current) => {
+      const isOpenOnCurrentPath = current.open && current.pathname === pathname;
+      return {
+        open: !isOpenOnCurrentPath,
+        pathname,
+      };
+    });
+  };
+
+  const closeMobileMenu = () => {
+    setMobileMenuState({
+      open: false,
+      pathname,
+    });
+  };
 
   return (
     <nav className="sticky top-0 z-50 border-b border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
@@ -87,7 +103,7 @@ export function Navbar({
           {/* Actions */}
           <div className="flex items-center gap-3">
             {/* Theme Toggle - Sharp Corners */}
-            {mounted && (
+            {hydrated && (
               <button
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                 className="rounded-none border border p-2 transition-colors hover:border-accent hover:bg-background-raised"
@@ -111,7 +127,7 @@ export function Navbar({
             {/* Mobile Menu Button - Visible on mobile */}
             {hasMobileMenu && (
               <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                onClick={toggleMobileMenu}
                 className={`rounded-none border border p-2 transition-colors hover:border-accent hover:bg-background-raised ${mobileMenuVisibilityClass}`}
                 aria-label="Toggle menu"
                 aria-expanded={mobileMenuOpen}
@@ -132,7 +148,7 @@ export function Navbar({
                     <Link
                       key={link.href}
                       href={link.href}
-                      onClick={() => setMobileMenuOpen(false)}
+                      onClick={closeMobileMenu}
                       className={`block rounded-none border px-3 py-2 text-sm font-medium transition-colors ${
                         activeHref === link.href
                           ? 'border-accent bg-background-raised text-foreground'

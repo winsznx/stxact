@@ -7,7 +7,7 @@ import { api, type Receipt } from '@/lib/api';
 import { GlassPanel } from '@/components/GlassCard';
 
 async function sha256Hex(payload: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', payload);
+  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(payload));
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');

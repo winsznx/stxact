@@ -26,7 +26,7 @@ export default function DirectoryError({
         </h2>
 
         <p className="mb-6 text-sm text-foreground-muted">
-          We couldn't load the service directory. This might be a temporary issue.
+          We could not load the service directory. This might be a temporary issue.
         </p>
 
         <button

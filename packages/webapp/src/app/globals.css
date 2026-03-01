@@ -24,9 +24,9 @@
   --color-error: var(--error);
 
   /* Font Families */
-  --font-sans: var(--font-ibm-plex-sans), system-ui, sans-serif;
-  --font-serif: var(--font-ibm-plex-serif), Georgia, serif;
-  --font-mono: var(--font-jetbrains-mono), Menlo, monospace;
+  --font-sans: "IBM Plex Sans", "Avenir Next", "Segoe UI", sans-serif;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Menlo, monospace;
 }
 
 @layer theme {

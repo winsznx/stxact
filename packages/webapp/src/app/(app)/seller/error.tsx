@@ -26,7 +26,7 @@ export default function SellerError({
         </h2>
 
         <p className="mb-6 text-sm text-foreground-muted">
-          We couldn't load your seller dashboard. Please try again.
+          We could not load your seller dashboard. Please try again.
         </p>
 
         <button

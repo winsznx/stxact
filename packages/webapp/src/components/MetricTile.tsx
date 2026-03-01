@@ -1,4 +1,3 @@
-import { ReactNode } from 'react';
 import { clsx } from 'clsx';
 import { LucideIcon } from 'lucide-react';
 

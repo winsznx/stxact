@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FileCheck, Shield, Scale, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { FileCheck, Shield, Scale, ArrowRight } from 'lucide-react';
 import { ReceiptStack } from '@/components/ReceiptStack';
 import { footerLegalLinks, footerResourceLinks } from '@/lib/navigation';
 
