@@ -126,12 +126,10 @@ class APIError extends Error {
 }
 
 async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const headers: HeadersInit = {
-    ...options?.headers,
-  };
+  const headers = new Headers(options?.headers);
 
   if (!(options?.body instanceof FormData)) {
-    headers['Content-Type'] = 'application/json';
+    headers.set('Content-Type', 'application/json');
   }
 
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {

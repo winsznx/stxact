@@ -10,7 +10,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "test": "jest"
+    "test": "node --test tests/**/*.test.mjs"
   },
   "dependencies": {
     "@stacks/transactions": "^6.13.0",

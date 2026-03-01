@@ -1,4 +1,6 @@
+import { createHash } from 'crypto';
 import request from 'supertest';
+import { createStacksPrivateKey, signMessageHashRsv } from '@stacks/transactions';
 import { app } from '../../src/index';
 import { getPool } from '../../src/storage/db';
 
@@ -13,9 +15,33 @@ import { getPool } from '../../src/storage/db';
 describe('Service Directory Integration', () => {
   const testPrincipal = process.env.SERVICE_PRINCIPAL!;
   const testEndpointUrl = 'https://test-service.example.com/x402';
-  const testPolicyHash = 'sha256-test-policy-hash';
+  const testPolicyHash = createHash('sha256').update('test-policy').digest('hex');
   const testCategory = 'data-api';
+  const validBuyerPrincipal = 'ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG';
   let serviceId: number;
+
+  function signRegistration(
+    endpointUrl: string,
+    policyHash: string,
+    timestamp: number,
+    bnsName?: string
+  ) {
+    const endpointUrlHash = createHash('sha256').update(new URL(endpointUrl).toString()).digest('hex');
+    const canonicalMessage = [
+      'STXACT-REGISTER',
+      endpointUrlHash,
+      policyHash.toLowerCase(),
+      bnsName || '',
+      timestamp.toString(),
+    ].join(':');
+    const messageHash = createHash('sha256').update(canonicalMessage).digest('hex');
+    const signature = signMessageHashRsv({
+      messageHash,
+      privateKey: createStacksPrivateKey(process.env.SELLER_PRIVATE_KEY!),
+    });
+
+    return Buffer.from(signature.data, 'hex').toString('base64');
+  }
 
   beforeEach(async () => {
     // Clean up test data
@@ -64,6 +90,7 @@ describe('Service Directory Integration', () => {
     test('should reject duplicate registration', async () => {
       // #given: Service already registered
       const pool = getPool();
+      const timestamp = Math.floor(Date.now() / 1000);
       await pool.query(
         `INSERT INTO services (
           principal, endpoint_url, policy_hash, category,
@@ -82,13 +109,16 @@ describe('Service Directory Integration', () => {
       );
 
       // #when: Attempt duplicate registration
+      const endpointUrl = 'https://different-url.com';
       const response = await request(app)
         .post('/directory/register')
         .send({
-          endpoint_url: 'https://different-url.com',
+          endpoint_url: endpointUrl,
           policy_hash: testPolicyHash,
           category: testCategory,
           supported_tokens: [{ network: 'stacks', asset: 'STX' }],
+          signature: signRegistration(endpointUrl, testPolicyHash, timestamp),
+          timestamp,
         })
         .expect(409);
 
@@ -144,7 +174,7 @@ describe('Service Directory Integration', () => {
           supported_tokens, registered_at, stake_amount, active, bns_name
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
-          'SP1234567890ABCDEF1',
+          testPrincipal,
           'https://service1.example.com',
           'hash1',
           'data-api',
@@ -162,7 +192,7 @@ describe('Service Directory Integration', () => {
           supported_tokens, registered_at, stake_amount, active
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
-          'SP1234567890ABCDEF2',
+          validBuyerPrincipal,
           'https://service2.example.com',
           'hash2',
           'ai-compute',
@@ -185,7 +215,7 @@ describe('Service Directory Integration', () => {
       expect(response.body.services.length).toBeGreaterThanOrEqual(2);
 
       const service = response.body.services.find(
-        (s: any) => s.principal === 'SP1234567890ABCDEF1'
+        (s: any) => s.principal === testPrincipal
       );
       expect(service).toBeDefined();
       expect(service.endpoint_url).toBe('https://service1.example.com');
@@ -215,7 +245,7 @@ describe('Service Directory Integration', () => {
       expect(response.body.services.length).toBeGreaterThanOrEqual(1);
 
       const service = response.body.services.find(
-        (s: any) => s.principal === 'SP1234567890ABCDEF2'
+        (s: any) => s.principal === validBuyerPrincipal
       );
       expect(service).toBeDefined();
     });
@@ -227,7 +257,7 @@ describe('Service Directory Integration', () => {
         .expect(200);
 
       // #then: Returns service details
-      expect(response.body.principal).toBe('SP1234567890ABCDEF1');
+      expect(response.body.principal).toBe(testPrincipal);
       expect(response.body.endpoint_url).toBe('https://service1.example.com');
       expect(response.body.bns_name).toBe('service1.btc');
     });
@@ -245,7 +275,7 @@ describe('Service Directory Integration', () => {
     test('should return reputation data with service listing', async () => {
       // #given: Service has reputation data
       const pool = getPool();
-      const principal = 'SP1234567890ABCDEF1';
+      const principal = testPrincipal;
 
       // Mock reputation data (in production, fetched from on-chain)
       await pool.query(

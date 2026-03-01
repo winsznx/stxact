@@ -10,6 +10,7 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useWallet } from '@/hooks/useWallet';
+import { useCurrentEpochSeconds } from '@/hooks/useCurrentEpochSeconds';
 import { useReceipts } from '@/hooks/useReceipts';
 import { useDisputes } from '@/hooks/useDisputes';
 import { GlassPanel } from '@/components/GlassCard';
@@ -31,6 +32,7 @@ export default function AuditPage() {
   const [selectedReceipts, setSelectedReceipts] = useState<string[]>([]);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
+  const now = useCurrentEpochSeconds();
 
   const { data: receiptsData, isLoading: receiptsLoading } = useReceipts({
     seller_principal: walletAddress || undefined,
@@ -41,25 +43,24 @@ export default function AuditPage() {
     seller_principal: walletAddress || undefined,
   });
 
-  const receipts = receiptsData?.receipts || [];
-  const disputes = disputesData?.disputes || [];
+  const receiptItems = receiptsData?.receipts;
+  const disputeItems = disputesData?.disputes;
 
   const cutoffTimestamp = useMemo(() => {
-    const now = Math.floor(Date.now() / 1000);
     if (dateRange === 'all') return 0;
     if (dateRange === '7d') return now - 7 * 24 * 60 * 60;
     if (dateRange === '30d') return now - 30 * 24 * 60 * 60;
     return now - 90 * 24 * 60 * 60;
-  }, [dateRange]);
+  }, [dateRange, now]);
 
   const filteredReceipts = useMemo(
-    () => receipts.filter((r) => r.timestamp >= cutoffTimestamp),
-    [receipts, cutoffTimestamp]
+    () => (receiptItems ?? []).filter((r) => r.timestamp >= cutoffTimestamp),
+    [receiptItems, cutoffTimestamp]
   );
 
   const filteredDisputes = useMemo(
-    () => disputes.filter((d) => d.created_at >= cutoffTimestamp),
-    [disputes, cutoffTimestamp]
+    () => (disputeItems ?? []).filter((d) => d.created_at >= cutoffTimestamp),
+    [disputeItems, cutoffTimestamp]
   );
 
   const receiptsForExport = useMemo(() => {

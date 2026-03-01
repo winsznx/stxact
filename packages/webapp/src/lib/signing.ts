@@ -1,8 +1,8 @@
-import { openSignatureRequest } from '@stacks/connect';
-
 export async function signWithWallet(message: string): Promise<string> {
+  const { openSignatureRequestPopup } = await import('@stacks/connect');
+
   return new Promise((resolve, reject) => {
-    openSignatureRequest({
+    openSignatureRequestPopup({
       message,
       network:
         process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet'

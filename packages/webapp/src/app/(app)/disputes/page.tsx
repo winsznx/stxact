@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { AlertCircle, Scale, CheckCircle2, RefreshCw, RefreshCcw } from 'lucide-react';
 import Link from 'next/link';
 import { useDisputes } from '@/hooks/useDisputes';
+import { useCurrentEpochSeconds } from '@/hooks/useCurrentEpochSeconds';
 import { useWallet } from '@/hooks/useWallet';
 
 type ViewMode = 'buyer' | 'seller';
@@ -21,12 +22,13 @@ export default function DisputesPage() {
     limit: 100,
   });
 
-  const disputes = data?.disputes || [];
-  const now = Math.floor(Date.now() / 1000);
+  const sourceDisputes = data?.disputes;
+  const now = useCurrentEpochSeconds();
 
   const withDerivedStatus = useMemo(
-    () =>
-      disputes.map((dispute) => {
+    () => {
+      const disputes = sourceDisputes ?? [];
+      return disputes.map((dispute) => {
         const expired =
           (dispute.status === 'open' || dispute.status === 'acknowledged') &&
           now - dispute.created_at > resolutionWindowSeconds;
@@ -35,8 +37,9 @@ export default function DisputesPage() {
           ...dispute,
           derivedStatus,
         };
-      }),
-    [disputes, now, resolutionWindowSeconds]
+      });
+    },
+    [sourceDisputes, now, resolutionWindowSeconds]
   );
 
   const filteredDisputes = useMemo(
@@ -54,12 +57,15 @@ export default function DisputesPage() {
     [statusFilter, withDerivedStatus]
   );
 
-  const stats = {
-    open: withDerivedStatus.filter((d) => d.derivedStatus === 'open' || d.derivedStatus === 'acknowledged').length,
-    resolved: withDerivedStatus.filter((d) => d.derivedStatus === 'resolved').length,
-    refunded: withDerivedStatus.filter((d) => d.derivedStatus === 'refunded').length,
-    expired: withDerivedStatus.filter((d) => d.derivedStatus === 'expired').length,
-  };
+  const stats = useMemo(
+    () => ({
+      open: withDerivedStatus.filter((d) => d.derivedStatus === 'open' || d.derivedStatus === 'acknowledged').length,
+      resolved: withDerivedStatus.filter((d) => d.derivedStatus === 'resolved').length,
+      refunded: withDerivedStatus.filter((d) => d.derivedStatus === 'refunded').length,
+      expired: withDerivedStatus.filter((d) => d.derivedStatus === 'expired').length,
+    }),
+    [withDerivedStatus]
+  );
 
   if (!walletAddress) {
     return (

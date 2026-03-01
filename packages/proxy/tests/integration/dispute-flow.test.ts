@@ -12,10 +12,11 @@ import { getPool } from '../../src/storage/db';
  */
 
 describe('Dispute Resolution Integration', () => {
-  const testReceiptId = 'test-receipt-dispute';
+  const testReceiptId = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
   const testPaymentTxid = 'test-payment-dispute';
   const sellerPrincipal = process.env.SERVICE_PRINCIPAL!;
-  const buyerPrincipal = 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM';
+  const buyerPrincipal = 'ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG';
+  const disputeReason = 'no_response';
   let disputeId: string;
 
   beforeEach(async () => {
@@ -58,7 +59,7 @@ describe('Dispute Resolution Integration', () => {
         .post('/disputes')
         .send({
           receipt_id: testReceiptId,
-          reason: 'Service not delivered as described',
+          reason: disputeReason,
         })
         .expect(201);
 
@@ -89,8 +90,8 @@ describe('Dispute Resolution Integration', () => {
       const response = await request(app)
         .post('/disputes')
         .send({
-          receipt_id: 'non-existent-receipt',
-          reason: 'Test reason',
+          receipt_id: '9c9e6679-7425-40de-944b-e07fc1f90ae7',
+          reason: disputeReason,
         })
         .expect(404);
 
@@ -107,7 +108,7 @@ describe('Dispute Resolution Integration', () => {
         .post('/disputes')
         .send({
           receipt_id: testReceiptId,
-          reason: 'Service not delivered',
+          reason: disputeReason,
         })
         .expect(201);
 
@@ -127,7 +128,7 @@ describe('Dispute Resolution Integration', () => {
         .post('/disputes')
         .send({
           receipt_id: testReceiptId,
-          reason: 'Test dispute',
+          reason: disputeReason,
         });
 
       disputeId = response.body.dispute_id;
@@ -166,13 +167,13 @@ describe('Dispute Resolution Integration', () => {
         .post('/disputes')
         .send({
           receipt_id: testReceiptId,
-          reason: 'Test dispute',
+          reason: disputeReason,
         });
 
       disputeId = response.body.dispute_id;
     });
 
-    test.skip('should verify seller signature on refund authorization', async () => {
+    test('should verify seller signature on refund authorization', async () => {
       // #given: Seller creates refund authorization
       const refundAmount = '100000'; // 0.1 STX in micro-STX
       const timestamp = Math.floor(Date.now() / 1000);
@@ -195,7 +196,7 @@ describe('Dispute Resolution Integration', () => {
 
       // #when: Seller submits refund authorization
       const response = await request(app)
-        .post('/refunds')
+        .post('/disputes/refunds')
         .send({
           dispute_id: disputeId,
           receipt_id: testReceiptId,
@@ -218,7 +219,7 @@ describe('Dispute Resolution Integration', () => {
 
       // #when: Submit refund with invalid signature
       const response = await request(app)
-        .post('/refunds')
+        .post('/disputes/refunds')
         .send({
           dispute_id: disputeId,
           receipt_id: testReceiptId,
@@ -245,7 +246,7 @@ describe('Dispute Resolution Integration', () => {
 
       // #when: Seller submits refund for closed dispute
       const response = await request(app)
-        .post('/refunds')
+        .post('/disputes/refunds')
         .send({
           dispute_id: disputeId,
           receipt_id: testReceiptId,
@@ -266,7 +267,7 @@ describe('Dispute Resolution Integration', () => {
 
       // #when: Submit expired authorization
       const response = await request(app)
-        .post('/refunds')
+        .post('/disputes/refunds')
         .send({
           dispute_id: disputeId,
           receipt_id: testReceiptId,
@@ -283,24 +284,93 @@ describe('Dispute Resolution Integration', () => {
   });
 
   describe('Flow 4: On-Chain Refund Execution', () => {
-    test.skip('should call dispute-resolver.clar execute-refund on blockchain', async () => {
-      // This test requires:
-      // 1. Mock blockchain transactions
-      // 2. Verify makeContractCall parameters
-      // 3. Verify broadcastTransaction called
-      //
-      // Integration with actual testnet deferred to E2E tests
-    });
-
-    test.skip('should update dispute status after successful on-chain refund', async () => {
-      // #given: Refund executed on-chain
-
-      // #when: Query dispute status
+    test('should call dispute-resolver.clar execute-refund on blockchain', async () => {
       const response = await request(app)
-        .get(`/disputes/${disputeId}`)
+        .post('/disputes')
+        .send({
+          receipt_id: testReceiptId,
+          reason: disputeReason,
+        })
+        .expect(201);
+
+      const { signRefundAuthorization } = await import('../../src/crypto/signatures');
+      const { makeContractCall } = await import('@stacks/transactions');
+      const signedAt = Math.floor(Date.now() / 1000);
+      const currentDisputeId = response.body.dispute_id;
+      const refundAmount = '100000';
+      const signature = signRefundAuthorization(
+        {
+          dispute_id: currentDisputeId,
+          receipt_id: testReceiptId,
+          refund_amount: refundAmount,
+          buyer_principal: buyerPrincipal,
+          seller_principal: sellerPrincipal,
+          timestamp: signedAt,
+        },
+        process.env.SELLER_PRIVATE_KEY!
+      );
+
+      await request(app)
+        .post('/disputes/refunds')
+        .send({
+          dispute_id: currentDisputeId,
+          receipt_id: testReceiptId,
+          refund_amount: refundAmount,
+          buyer_principal: buyerPrincipal,
+          timestamp: signedAt,
+          seller_signature: signature,
+        })
         .expect(200);
 
-      // #then: Dispute marked as refunded
+      const mockedMakeContractCall = makeContractCall as unknown as {
+        mock: { calls: Array<[Record<string, unknown>]> };
+      };
+      const lastCall = mockedMakeContractCall.mock.calls.at(-1)?.[0];
+
+      expect(lastCall?.functionName).toBe('execute-refund');
+    });
+
+    test('should update dispute status after successful on-chain refund', async () => {
+      const createResponse = await request(app)
+        .post('/disputes')
+        .send({
+          receipt_id: testReceiptId,
+          reason: disputeReason,
+        })
+        .expect(201);
+
+      const currentDisputeId = createResponse.body.dispute_id;
+      const { signRefundAuthorization } = await import('../../src/crypto/signatures');
+      const timestamp = Math.floor(Date.now() / 1000);
+      const refundAmount = '100000';
+      const signature = signRefundAuthorization(
+        {
+          dispute_id: currentDisputeId,
+          receipt_id: testReceiptId,
+          refund_amount: refundAmount,
+          buyer_principal: buyerPrincipal,
+          seller_principal: sellerPrincipal,
+          timestamp,
+        },
+        process.env.SELLER_PRIVATE_KEY!
+      );
+
+      await request(app)
+        .post('/disputes/refunds')
+        .send({
+          dispute_id: currentDisputeId,
+          receipt_id: testReceiptId,
+          refund_amount: refundAmount,
+          buyer_principal: buyerPrincipal,
+          timestamp,
+          seller_signature: signature,
+        })
+        .expect(200);
+
+      const response = await request(app)
+        .get(`/disputes/${currentDisputeId}`)
+        .expect(200);
+
       expect(response.body.status).toBe('refunded');
       expect(response.body.refund_issued).toBe(true);
       expect(response.body.refund_txid).toBeDefined();

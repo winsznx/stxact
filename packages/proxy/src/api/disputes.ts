@@ -56,7 +56,7 @@ router.post('/', async (req: Request, res: Response) => {
     );
 
     if (receiptResult.rows.length === 0) {
-      res.status(400).json({
+      res.status(404).json({
         error: 'receipt_not_found',
         message: `Receipt ${receipt_id} not found`,
       });

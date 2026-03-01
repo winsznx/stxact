@@ -26,7 +26,7 @@ export default function ReceiptsError({
         </h2>
 
         <p className="mb-6 text-sm text-foreground-muted">
-          We couldn't load your receipts. Please try again.
+          We could not load your receipts. Please try again.
         </p>
 
         <button

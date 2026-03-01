@@ -10,7 +10,7 @@ import { StacksTestnet } from '@stacks/network';
 describe('Signature Functions', () => {
   // Test private key (never use in production)
   const testPrivateKey = 'edf9aee84d9b7abc145504dde6726c64f369d37ee34ded868fabd876c26570bc01';
-  const expectedPrincipal = 'ST1PQHQKV0RJXZFY1DGX8MNSNYVE3VGZJSRTPGZGM';
+  const expectedPrincipal = 'STAW66WC3G8WA5F28JVNG1NTRJ6H76E7EMHDBMBN';
 
   describe('Receipt Signatures', () => {
     const testReceipt: Omit<Receipt, 'metadata' | 'signature'> = {
@@ -48,7 +48,7 @@ describe('Signature Functions', () => {
 
       const modifiedReceipt: Receipt = {
         ...testReceipt,
-        refund_amount: '99999', // Modified
+        payment_txid: '0xmodified-payment-txid',
         signature,
       };
 
