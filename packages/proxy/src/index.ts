@@ -12,7 +12,7 @@ import { validateEnv } from './config/env';
 
 const app: Application = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
-const HOST = process.env.HOST || '0.0.0.0';
+const HOST = process.env.HOST || '::';
 
 /**
  * Initialize application
