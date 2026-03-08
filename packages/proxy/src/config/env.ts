@@ -1,3 +1,4 @@
+import { getAddressFromPrivateKey, TransactionVersion } from '@stacks/transactions';
 import { logger } from './logger';
 
 /**
@@ -159,6 +160,15 @@ const envVarDefinitions: RequiredEnvVars = {
   },
 };
 
+export function deriveServicePrincipal(privateKey: string, stacksNetwork: string): string {
+  const transactionVersion =
+    stacksNetwork.toLowerCase() === 'mainnet'
+      ? TransactionVersion.Mainnet
+      : TransactionVersion.Testnet;
+
+  return getAddressFromPrivateKey(privateKey.trim().replace(/^0x/, ''), transactionVersion);
+}
+
 export function validateEnv(): void {
   const missingRequired: string[] = [];
   const invalidTypes: string[] = [];
@@ -222,6 +232,25 @@ export function validateEnv(): void {
 
     logger.error(errorMessage);
     throw new Error(errorMessage);
+  }
+
+  const sellerPrivateKey = process.env.SELLER_PRIVATE_KEY;
+  const servicePrincipal = process.env.SERVICE_PRINCIPAL;
+  const stacksNetwork = process.env.STACKS_NETWORK || 'testnet';
+
+  if (sellerPrivateKey && servicePrincipal) {
+    try {
+      const derivedServicePrincipal = deriveServicePrincipal(sellerPrivateKey, stacksNetwork);
+      if (derivedServicePrincipal !== servicePrincipal) {
+        invalidTypes.push(
+          `SERVICE_PRINCIPAL must match SELLER_PRIVATE_KEY derived address (expected: ${derivedServicePrincipal}, got: ${servicePrincipal})`
+        );
+      }
+    } catch (error) {
+      invalidTypes.push(
+        `SELLER_PRIVATE_KEY could not derive a valid ${stacksNetwork} service principal (${error instanceof Error ? error.message : String(error)})`
+      );
+    }
   }
 
   if (invalidTypes.length > 0) {
