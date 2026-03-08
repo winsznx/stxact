@@ -12,8 +12,8 @@ export async function signWithWallet(message: string): Promise<string> {
         name: 'stxact',
         icon:
           typeof window !== 'undefined'
-            ? `${window.location.origin}/favicon.ico`
-            : '/favicon.ico',
+            ? `${window.location.origin}/icon`
+            : '/icon',
       },
       onFinish: (data: { signature: string }) => {
         if (!data.signature) {

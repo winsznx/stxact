@@ -8,6 +8,7 @@ import { useMemo, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { useHydrated } from '@/hooks/useHydrated';
 import type { NavItem } from '@/lib/navigation';
+import { BrandLogo } from './BrandLogo';
 
 const WalletButton = dynamic(
   () => import('./WalletButton').then((mod) => ({ default: mod.WalletButton })),
@@ -70,15 +71,11 @@ export function Navbar({
     <nav className="sticky top-0 z-50 border-b border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
-          {/* Logo - Receipt Stamp Style */}
-          <Link href="/" className="group flex items-center gap-2">
-            <div className="relative">
-              <div className="h-8 w-8 border-2 border-foreground bg-background-raised transition-transform group-hover:rotate-2" />
-              <div className="absolute -right-1 -top-1 h-3 w-3 bg-accent transition-all group-hover:scale-110" />
-            </div>
-            <span className="font-serif text-xl font-semibold tracking-tight">
-              stxact
-            </span>
+          <Link href="/" className="group">
+            <BrandLogo
+              iconClassName="transition-transform group-hover:rotate-2"
+              labelClassName="transition-colors group-hover:text-accent"
+            />
           </Link>
 
           {/* Desktop Navigation */}

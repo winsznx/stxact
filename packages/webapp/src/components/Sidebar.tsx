@@ -9,6 +9,7 @@ import {
     ChevronLeft,
     ChevronRight,
 } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
 import { useWallet } from '@/hooks/useWallet';
 import { appNavigation } from '@/lib/navigation';
 
@@ -53,9 +54,13 @@ export function Sidebar() {
                 <div className="flex h-full flex-col">
                     {/* Header */}
                     <div className="flex h-16 items-center justify-between border-b border px-4">
-                        {isOpen && (
-                            <h2 className="font-serif text-xl font-bold">stxact</h2>
-                        )}
+                        <Link href="/" aria-label="stxact home">
+                            <BrandLogo
+                                showLabel={isOpen}
+                                iconClassName="h-10 w-10"
+                                labelClassName="text-lg font-bold"
+                            />
+                        </Link>
                         <button
                             onClick={toggleSidebar}
                             className="hidden rounded-none p-1.5 hover:bg-background-overlay lg:block"

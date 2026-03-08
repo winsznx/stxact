@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { FileCheck, Shield, Scale, ArrowRight } from 'lucide-react';
+import { BrandLogo } from '@/components/BrandLogo';
 import { ReceiptStack } from '@/components/ReceiptStack';
 import { footerLegalLinks, footerResourceLinks } from '@/lib/navigation';
 
@@ -174,7 +175,7 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid gap-8 md:grid-cols-4">
             <div>
-              <div className="mb-4 font-serif text-lg font-semibold">stxact</div>
+              <BrandLogo className="mb-4" iconClassName="h-10 w-10" labelClassName="text-lg" />
               <p className="text-sm text-foreground-muted">
                 Cryptographic receipts for Web3 payments on Stacks
               </p>

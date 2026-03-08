@@ -102,7 +102,7 @@ function WalletStateProvider({ children }: { children: React.ReactNode }) {
       },
       appDetails: {
         name: 'stxact',
-        icon: typeof window !== 'undefined' ? `${window.location.origin}/favicon.png` : '/favicon.png',
+        icon: typeof window !== 'undefined' ? `${window.location.origin}/icon` : '/icon',
       },
     });
   };
@@ -134,7 +134,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const authOptions = {
     appDetails: {
       name: 'stxact',
-      icon: typeof window !== 'undefined' ? `${window.location.origin}/favicon.png` : '/favicon.png',
+      icon: typeof window !== 'undefined' ? `${window.location.origin}/icon` : '/icon',
     },
     userSession: session,
   };

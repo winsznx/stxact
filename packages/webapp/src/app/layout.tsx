@@ -6,8 +6,9 @@ export const metadata: Metadata = {
   title: 'stxact - Web3 Payment Receipts',
   description: 'Cryptographic payment receipts and dispute resolution on the Stacks blockchain',
   icons: {
-    icon: '/favicon.png',
-    apple: '/favicon.png',
+    icon: [{ url: '/icon', type: 'image/png' }],
+    shortcut: [{ url: '/icon', type: 'image/png' }],
+    apple: [{ url: '/apple-icon', type: 'image/png' }],
   },
 };
 
