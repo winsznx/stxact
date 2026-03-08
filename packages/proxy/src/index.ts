@@ -12,6 +12,7 @@ import { validateEnv } from './config/env';
 
 const app: Application = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
+const HOST = process.env.HOST || '0.0.0.0';
 
 /**
  * Initialize application
@@ -277,8 +278,9 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 async function start(): Promise<void> {
   await initializeApp();
 
-  app.listen(PORT, () => {
+  app.listen(PORT, HOST, () => {
     logger.info('stxact proxy started', {
+      host: HOST,
       port: PORT,
       environment: process.env.NODE_ENV,
     });
