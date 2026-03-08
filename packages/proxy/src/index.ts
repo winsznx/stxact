@@ -12,7 +12,7 @@ import { validateEnv } from './config/env';
 
 const app: Application = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
-const HOST = process.env.HOST || '::';
+const HOST = process.env.HOST || '0.0.0.0';
 
 /**
  * Initialize application
@@ -279,6 +279,9 @@ async function start(): Promise<void> {
   await initializeApp();
 
   app.listen(PORT, HOST, () => {
+    // Railway edge 502s commonly come from target-port mismatch. Emit a plain log line
+    // so the effective host/port is visible in deploy logs without structured metadata.
+    console.log(`STXACT_LISTENING host=${HOST} port=${PORT}`);
     logger.info('stxact proxy started', {
       host: HOST,
       port: PORT,
