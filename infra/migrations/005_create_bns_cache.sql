@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS bns_cache (
   owner_principal VARCHAR(42) NOT NULL,
   cached_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   ttl_seconds INTEGER NOT NULL DEFAULT 3600,
-  expires_at TIMESTAMP WITH TIME ZONE GENERATED ALWAYS AS (cached_at + (ttl_seconds || ' seconds')::INTERVAL) STORED
+  expires_at TIMESTAMP WITH TIME ZONE GENERATED ALWAYS AS (cached_at + make_interval(secs => ttl_seconds)) STORED
 );
 
 -- Indexes
