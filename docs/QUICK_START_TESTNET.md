@@ -145,7 +145,23 @@ curl http://localhost:3001/.well-known/stxact-config
 
 **Open browser:**
 - http://localhost:3000/directory (should show empty directory)
-- http://localhost:3000/demo (should show demo page)
+- http://localhost:3000/receipts/verify (should load receipt verification UI)
+
+**Run a paid test request:**
+```bash
+# If the proxy is running with NODE_ENV=production, set ENABLE_DEMO_ROUTES=true first.
+stxact curl http://localhost:3001/demo/premium-data \
+  --wallet /path/to/testnet-wallet.json \
+  --verify \
+  --output receipt.json
+```
+
+**Run the full current-stack verification flow:**
+```bash
+STXACT_BUYER_WALLET=/path/to/buyer-wallet.json \
+STXACT_SELLER_WALLET=/path/to/seller-wallet.json \
+node scripts/verify-testnet-e2e.mjs
+```
 
 ---
 

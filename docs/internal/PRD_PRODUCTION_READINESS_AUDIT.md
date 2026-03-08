@@ -1,7 +1,7 @@
 # PRD Production Readiness Audit
 
-Date: 2026-03-01
-Branch: `stxact-gaps`
+Date: 2026-03-08
+Branch: `main`
 
 ## Verdict
 
@@ -32,8 +32,9 @@ The branch still does **not** satisfy every PRD acceptance item because several 
 | `npm --workspace packages/proxy run test` | PASS | `6` suites passed, `44` tests passed, `7` skipped. |
 | `npm --workspace packages/webapp run build` | PASS | Next.js production build completed successfully; routes generated for `/directory`, `/directory/[principal]`, `/receipts/[id]`, `/receipts/verify`, `/disputes`, `/disputes/[id]`, `/disputes/new`. |
 | `npm --workspace packages/webapp run test` | PASS | `3` test files passed, `9` tests passed. |
-| `npm --workspace packages/cli run build` | PASS | TypeScript build completed successfully on 2026-03-01. |
-| `npm --workspace packages/cli run test` | PASS | New CLI e2e harness passed: `1` test, `1` pass. |
+| `npm --workspace packages/cli run build` | PASS | TypeScript build completed successfully on 2026-03-08. |
+| `npm --workspace packages/cli run test` | PASS | CLI e2e harness passed: `1` test, `1` pass, including dispute refund execution. |
+| `node --check scripts/verify-testnet-e2e.mjs` | PASS | Repeatable live-style verification script syntax checked on 2026-03-08. |
 
 ### Contract Validation
 
@@ -74,6 +75,7 @@ The branch still does **not** satisfy every PRD acceptance item because several 
 - `PASS`: refund authorization signature verification and refund execution path verified
   - Evidence: `packages/proxy/tests/unit/signatures.test.ts`
   - Evidence: `packages/proxy/tests/integration/dispute-flow.test.ts`
+  - Evidence: CLI `dispute refund` e2e harness
 - `PARTIAL`: status transition is implemented and verified as `open -> refunded`
   - PRD text calls out `open -> resolved`; current API/UI model uses `refunded` as a distinct terminal state.
 - `BLOCKED`: reputation adjustment after dispute resolution is not directly asserted by a runnable automated test in this environment
@@ -113,10 +115,11 @@ The branch still does **not** satisfy every PRD acceptance item because several 
 
 ### 9. Developer Experience
 
-- `PASS`: `stxact curl`, `stxact verify-receipt`, `stxact dispute create`, and `stxact dispute status` work end-to-end in the new CLI harness
+- `PASS`: `stxact curl`, `stxact verify-receipt`, `stxact dispute create`, `stxact dispute status`, and `stxact dispute refund` work end-to-end in the CLI harness
 - `PASS`: `docs/INTEGRATION_GUIDE.md` exists
 - `PASS`: `docs/api/openapi.yaml` exists
 - `PASS`: guide includes TypeScript, Python, and Go examples
+- `PARTIAL`: repeatable live-style verification script now exists at `scripts/verify-testnet-e2e.mjs`, but it has not been executed against a public testnet deployment in this audit environment
 
 ### 10. Compliance
 
@@ -157,11 +160,13 @@ The branch still does **not** satisfy every PRD acceptance item because several 
 - Fixed receipt/refund signature handling in proxy crypto utilities
 - Removed webapp build blockers and React/compiler lint issues
 - Reworked CLI payment handling so `stxact curl` can auto-pay and the documented `curl -> verify-receipt` workflow works
-- Added deterministic CLI e2e coverage with local mock x402/API/Stacks services
+- Added deterministic CLI e2e coverage with local mock x402/API/Stacks services, including seller-side refund execution
+- Added a repeatable `scripts/verify-testnet-e2e.mjs` flow for public testnet verification and corrected testnet docs to match the current CLI + webapp flow
 
 ## Remaining Production Blockers
 
 1. Contract test execution is not wired to the installed Clarinet v3 workflow, so reputation/slashing behavior is still not proven by runnable tests.
 2. Several PRD items still lack automated evidence: binary deliverables, async final receipts, post-dispute reputation effects, and exact `open -> resolved` dispute semantics.
-3. Infra/compliance/security criteria remain outside repository proof: replication, backups, uptime monitoring, and external security audit.
-4. `clarinet check` warnings on unchecked contract inputs should be reviewed before claiming full production readiness.
+3. Public testnet evidence is still pending: the repeatable verification script exists, but this audit environment did not execute it against a live deployed proxy/web stack.
+4. Infra/compliance/security criteria remain outside repository proof: replication, backups, uptime monitoring, and external security audit.
+5. `clarinet check` warnings on unchecked contract inputs should be reviewed before claiming full production readiness.

@@ -137,6 +137,17 @@ stxact curl http://localhost:3001/demo/premium-data \
 stxact verify-receipt receipt.json --on-chain
 ```
 
+```bash
+stxact dispute refund <dispute-id> <refund-amount-microstx> \
+  --wallet ~/.stacks-seller-wallet.json
+```
+
+```bash
+STXACT_BUYER_WALLET=~/.stacks-buyer-wallet.json \
+STXACT_SELLER_WALLET=~/.stacks-seller-wallet.json \
+node scripts/verify-testnet-e2e.mjs
+```
+
 ## 6. Minimum Production Checklist
 
 - `POST /receipts/verify` enabled for public verification

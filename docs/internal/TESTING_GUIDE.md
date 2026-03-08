@@ -71,7 +71,7 @@ SERVICE_PRINCIPAL=<stacks-principal>
 REPUTATION_MAP_ADDRESS=<contract-address>.<contract-name>
 SERVICE_REGISTRY_ADDRESS=<contract-address>.<contract-name>
 DISPUTE_RESOLVER_ADDRESS=<contract-address>.<contract-name>
-NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:3001
 ```
 
 ### 1. Test Backend API

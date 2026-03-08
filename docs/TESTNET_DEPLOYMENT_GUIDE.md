@@ -686,24 +686,29 @@ http://localhost:3000/directory
 
 ### 9.2: Test Payment Flow
 ```bash
-# Open demo endpoint
-open http://localhost:3000/demo/premium-data
+# Trigger the paid proxy endpoint and capture the receipt
+stxact curl http://localhost:3001/demo/premium-data \
+  --wallet /path/to/testnet-wallet.json \
+  --verify \
+  --output receipt.json
 ```
 
-**Manual test:**
-1. Page shows "Payment Required"
-2. Click "Connect Wallet"
-3. Approve connection in Hiro Wallet
-4. Click "Pay with STX"
-5. Approve payment in wallet
-6. Wait for confirmation (~30 seconds)
-7. Page reloads with data
-8. Receipt displayed
+**Verify in web app:**
+1. Open `http://localhost:3000/receipts/verify`
+2. Paste the receipt JSON from `receipt.json`
+3. Run verification and confirm on-chain checks pass
+
+**Repeatable end-to-end verification:**
+```bash
+STXACT_BUYER_WALLET=/path/to/buyer-wallet.json \
+STXACT_SELLER_WALLET=/path/to/seller-wallet.json \
+node scripts/verify-testnet-e2e.mjs
+```
 
 **Verify receipt:**
 ```bash
-# Check database
-psql -U stxact -d stxact -c "SELECT receipt_id, seller_principal, delivery_commitment FROM receipts ORDER BY created_at DESC LIMIT 1;"
+# Re-run receipt verification from the CLI against the saved response
+stxact verify-receipt receipt.json --on-chain
 ```
 
 ### 9.3: Test Receipt Verification
