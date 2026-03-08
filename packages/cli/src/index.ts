@@ -69,6 +69,10 @@ interface DisputeCreateCommandOptions {
   receivedHash?: string;
 }
 
+interface DisputeRefundCommandOptions {
+  wallet?: string;
+}
+
 interface ListServicesCommandOptions {
   minRep?: string;
   category?: string;
@@ -830,6 +834,61 @@ disputeCommand
   .action(async (disputeId: string) => {
     try {
       const response = await axios.get(`${API_BASE_URL}/disputes/${disputeId}`);
+      console.log(JSON.stringify(response.data, null, 2));
+    } catch (error) {
+      unwrapAxiosError(error);
+    }
+  });
+
+disputeCommand
+  .command('refund')
+  .argument('<disputeId>', 'dispute UUID')
+  .argument('<refundAmount>', 'refund amount in microSTX')
+  .requiredOption('--wallet <path>', 'Path to seller wallet JSON/private key file for refund signature')
+  .action(async (disputeId: string, refundAmount: string, options: DisputeRefundCommandOptions) => {
+    try {
+      if (!/^[0-9]+$/.test(refundAmount) || refundAmount === '0') {
+        throw new Error('Refund amount must be a positive integer in microSTX');
+      }
+
+      if (!options.wallet) {
+        throw new Error('Seller wallet is required');
+      }
+
+      const privateKey = await loadWalletPrivateKey(options.wallet);
+      const disputeResponse = await axios.get<{
+        dispute_id: string;
+        receipt_id?: string;
+        buyer_principal?: string;
+        seller_principal?: string;
+      }>(`${API_BASE_URL}/disputes/${disputeId}`);
+
+      const dispute = disputeResponse.data;
+      if (!dispute.receipt_id || !dispute.buyer_principal || !dispute.seller_principal) {
+        throw new Error('Dispute is missing receipt_id, buyer_principal, or seller_principal');
+      }
+
+      const timestamp = Math.floor(Date.now() / 1000);
+      const refundMessage = [
+        'STXACT-REFUND',
+        dispute.dispute_id,
+        dispute.receipt_id,
+        refundAmount,
+        dispute.buyer_principal,
+        dispute.seller_principal,
+        timestamp.toString(),
+      ].join(':');
+      const sellerSignature = signCanonicalMessage(refundMessage, privateKey);
+
+      const response = await axios.post(`${API_BASE_URL}/disputes/refunds`, {
+        dispute_id: dispute.dispute_id,
+        receipt_id: dispute.receipt_id,
+        refund_amount: refundAmount,
+        buyer_principal: dispute.buyer_principal,
+        timestamp,
+        seller_signature: sellerSignature,
+      });
+
       console.log(JSON.stringify(response.data, null, 2));
     } catch (error) {
       unwrapAxiosError(error);

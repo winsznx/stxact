@@ -55,12 +55,14 @@ test('CLI commands work end-to-end against local x402 and API harnesses', async 
   const tempDir = await mkdtemp(path.join(os.tmpdir(), 'stxact-cli-e2e-'));
   const cliEntry = path.resolve('dist/index.js');
   const walletPath = path.join(tempDir, 'wallet.json');
+  const sellerWalletPath = path.join(tempDir, 'seller-wallet.json');
   const curlOutputPath = path.join(tempDir, 'curl-output.json');
   const responseArtifactPath = path.join(tempDir, 'premium-response.json');
   const disputeId = '5ec77c0f-845d-41b9-a33b-a50f16449fc0';
   const receiptId = '7c9e6679-7425-40de-944b-e07fc1f90ae7';
-  const sellerPrincipal = 'STAW66WC3G8WA5F28JVNG1NTRJ6H76E7EMHDBMBN';
+  const sellerPrincipal = 'ST3JEA5ZE0YC4MG00SNXG1JYBAHCH3HA1RKF4S49Y';
   const buyerPrincipal = 'ST2CY5V39NHDPWSXMW9QDT3HC3GD6Q6XX4CFRK9AG';
+  const refundTxid = '0xrefund-mock-payment';
   const premiumResponse = {
     dataset: 'institutional-btc-yield',
     window: '2026-Q1',
@@ -79,6 +81,13 @@ test('CLI commands work end-to-end against local x402 and API harnesses', async 
     walletPath,
     JSON.stringify({
       privateKey: '6e809f10f8f2fd59837f5734478f729dff73ffb522d4f19f280f9cd8ab0b47c2',
+    }),
+    'utf8'
+  );
+  await writeFile(
+    sellerWalletPath,
+    JSON.stringify({
+      privateKey: '1111111111111111111111111111111111111111111111111111111111111111',
     }),
     'utf8'
   );
@@ -202,6 +211,8 @@ test('CLI commands work end-to-end against local x402 and API harnesses', async 
       const dispute = {
         dispute_id: disputeId,
         receipt_id: payload.receipt_id,
+        buyer_principal: buyerPrincipal,
+        seller_principal: sellerPrincipal,
         reason: payload.reason,
         status: 'open',
         created_at: 1_772_366_500,
@@ -213,6 +224,35 @@ test('CLI commands work end-to-end against local x402 and API harnesses', async 
 
     if (req.method === 'GET' && url.pathname === `/disputes/${disputeId}`) {
       sendJson(res, 200, state.disputes.get(disputeId));
+      return;
+    }
+
+    if (req.method === 'POST' && url.pathname === '/disputes/refunds') {
+      const payload = await readJsonBody(req);
+      assert.equal(payload.dispute_id, disputeId);
+      assert.equal(payload.receipt_id, receiptId);
+      assert.equal(payload.refund_amount, '150000');
+      assert.equal(payload.buyer_principal, buyerPrincipal);
+      assert.ok(typeof payload.timestamp === 'number');
+      assert.ok(typeof payload.seller_signature === 'string');
+
+      const updatedDispute = {
+        ...state.disputes.get(disputeId),
+        status: 'refunded',
+        refund_amount: payload.refund_amount,
+        refund_txid: refundTxid,
+        resolved_at: 1_772_366_600,
+      };
+
+      state.disputes.set(disputeId, updatedDispute);
+      sendJson(res, 200, {
+        status: 'refunded',
+        dispute_id: disputeId,
+        refund_txid: refundTxid,
+        refund_amount: payload.refund_amount,
+        buyer_principal: buyerPrincipal,
+        seller_principal: sellerPrincipal,
+      });
       return;
     }
 
@@ -308,6 +348,36 @@ test('CLI commands work end-to-end against local x402 and API harnesses', async 
     const disputeStatus = JSON.parse(disputeStatusResult.stdout.trim());
     assert.equal(disputeStatus.dispute_id, disputeId);
     assert.equal(disputeStatus.status, 'open');
+
+    const refundResult = await execFileAsync(
+      process.execPath,
+      [
+        cliEntry,
+        'dispute',
+        'refund',
+        disputeId,
+        '150000',
+        '--wallet',
+        sellerWalletPath,
+      ],
+      { cwd: path.resolve('.'), env: sharedEnv }
+    );
+
+    const refundedDispute = JSON.parse(refundResult.stdout.trim());
+    assert.equal(refundedDispute.dispute_id, disputeId);
+    assert.equal(refundedDispute.status, 'refunded');
+    assert.equal(refundedDispute.refund_txid, refundTxid);
+
+    const refundedStatusResult = await execFileAsync(
+      process.execPath,
+      [cliEntry, 'dispute', 'status', disputeId],
+      { cwd: path.resolve('.'), env: sharedEnv }
+    );
+
+    const refundedStatus = JSON.parse(refundedStatusResult.stdout.trim());
+    assert.equal(refundedStatus.dispute_id, disputeId);
+    assert.equal(refundedStatus.status, 'refunded');
+    assert.equal(refundedStatus.refund_txid, refundTxid);
 
     assert.deepEqual(
       state.verifyCalls.map((call) => ({
