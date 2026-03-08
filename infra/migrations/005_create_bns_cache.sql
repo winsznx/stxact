@@ -7,12 +7,48 @@ CREATE TABLE IF NOT EXISTS bns_cache (
   owner_principal VARCHAR(42) NOT NULL,
   cached_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   ttl_seconds INTEGER NOT NULL DEFAULT 3600,
-  expires_at TIMESTAMP WITH TIME ZONE GENERATED ALWAYS AS (cached_at + make_interval(secs => ttl_seconds)) STORED
+  expires_at TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
+CREATE OR REPLACE FUNCTION set_bns_cache_expiry()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.cached_at = COALESCE(NEW.cached_at, NOW());
+  NEW.ttl_seconds = COALESCE(NEW.ttl_seconds, 3600);
+  NEW.expires_at = NEW.cached_at + (NEW.ttl_seconds * INTERVAL '1 second');
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_trigger WHERE tgname = 'bns_cache_set_expiry'
+  ) THEN
+    CREATE TRIGGER bns_cache_set_expiry
+      BEFORE INSERT OR UPDATE ON bns_cache
+      FOR EACH ROW
+      EXECUTE FUNCTION set_bns_cache_expiry();
+  END IF;
+END $$;
+
+UPDATE bns_cache
+SET cached_at = COALESCE(cached_at, NOW()),
+    ttl_seconds = COALESCE(ttl_seconds, 3600),
+    expires_at = COALESCE(
+      expires_at,
+      COALESCE(cached_at, NOW()) + (COALESCE(ttl_seconds, 3600) * INTERVAL '1 second')
+    )
+WHERE expires_at IS NULL OR cached_at IS NULL OR ttl_seconds IS NULL;
+
+ALTER TABLE bns_cache ALTER COLUMN cached_at SET DEFAULT NOW();
+ALTER TABLE bns_cache ALTER COLUMN cached_at SET NOT NULL;
+ALTER TABLE bns_cache ALTER COLUMN ttl_seconds SET DEFAULT 3600;
+ALTER TABLE bns_cache ALTER COLUMN ttl_seconds SET NOT NULL;
+
 -- Indexes
-CREATE INDEX idx_bns_cache_owner_principal ON bns_cache(owner_principal);
-CREATE INDEX idx_bns_cache_expires_at ON bns_cache(expires_at);
+CREATE INDEX IF NOT EXISTS idx_bns_cache_owner_principal ON bns_cache(owner_principal);
+CREATE INDEX IF NOT EXISTS idx_bns_cache_expires_at ON bns_cache(expires_at);
 
 -- Comments
 COMMENT ON TABLE bns_cache IS 'Cache for BNS name lookups (1-hour TTL to minimize impersonation window)';
