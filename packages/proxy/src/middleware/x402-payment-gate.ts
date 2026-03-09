@@ -67,38 +67,9 @@ export function createX402PaymentGate(config: X402PaymentGateConfig) {
       let payerPrincipal: string | null = null;
       let paymentNetwork = networkCAIP2;
       let paymentMetadata: ConfirmedTxMetadata | null = null;
+      const browserPaymentTxid = extractBrowserPaymentTxid(req.get('payment-signature') || '');
 
-      try {
-        // Run x402 payment verification first
-        await new Promise<void>((resolve, reject) => {
-          x402Middleware(req, res, (error) => {
-            if (error) {
-              reject(error);
-            } else {
-              resolve();
-            }
-          });
-        });
-
-        // If we reach here, x402 payment verification succeeded
-        const payment = getPayment(req);
-
-        if (!payment || !payment.transaction) {
-          logger.error('Payment verification succeeded but no payment data attached');
-          res.status(500).json({
-            error: 'internal_error',
-            message: 'Payment data not found after verification',
-          });
-          return;
-        }
-
-        paymentTxid = payment.transaction;
-        const rawAmount = (payment as any).amount;
-        resolvedAmount = rawAmount !== undefined ? String(rawAmount) : amountMicroSTX;
-        payerPrincipal = payment.payer || (payment as any).from || (payment as any).sender || null;
-        paymentNetwork = payment.network || networkCAIP2;
-        paymentMetadata = await fetchConfirmedTxMetadata(paymentTxid);
-      } catch (x402Error) {
+      if (browserPaymentTxid) {
         const fallback = await tryOnChainPaymentFallback(req, {
           payTo: config.payTo,
           amountMicroSTX,
@@ -106,7 +77,7 @@ export function createX402PaymentGate(config: X402PaymentGateConfig) {
         });
 
         if (!fallback) {
-          throw x402Error;
+          throw new Error('Browser payment retry did not include a confirmed txid payload');
         }
 
         paymentTxid = fallback.paymentTxid;
@@ -115,11 +86,64 @@ export function createX402PaymentGate(config: X402PaymentGateConfig) {
         paymentNetwork = fallback.network;
         paymentMetadata = fallback.metadata;
 
-        logger.warn('x402 verification failed, recovered via on-chain fallback', {
+        logger.info('Payment verified via browser txid retry', {
           payment_txid: paymentTxid,
           payer: payerPrincipal,
-          original_error: x402Error instanceof Error ? x402Error.message : 'Unknown error',
         });
+      } else {
+        try {
+          // Run x402 payment verification first
+          await new Promise<void>((resolve, reject) => {
+            x402Middleware(req, res, (error) => {
+              if (error) {
+                reject(error);
+              } else {
+                resolve();
+              }
+            });
+          });
+
+          // If we reach here, x402 payment verification succeeded
+          const payment = getPayment(req);
+
+          if (!payment || !payment.transaction) {
+            logger.error('Payment verification succeeded but no payment data attached');
+            res.status(500).json({
+              error: 'internal_error',
+              message: 'Payment data not found after verification',
+            });
+            return;
+          }
+
+          paymentTxid = payment.transaction;
+          const rawAmount = (payment as any).amount;
+          resolvedAmount = rawAmount !== undefined ? String(rawAmount) : amountMicroSTX;
+          payerPrincipal = payment.payer || (payment as any).from || (payment as any).sender || null;
+          paymentNetwork = payment.network || networkCAIP2;
+          paymentMetadata = await fetchConfirmedTxMetadata(paymentTxid);
+        } catch (x402Error) {
+          const fallback = await tryOnChainPaymentFallback(req, {
+            payTo: config.payTo,
+            amountMicroSTX,
+            networkCAIP2,
+          });
+
+          if (!fallback) {
+            throw x402Error;
+          }
+
+          paymentTxid = fallback.paymentTxid;
+          resolvedAmount = fallback.amount;
+          payerPrincipal = fallback.payer;
+          paymentNetwork = fallback.network;
+          paymentMetadata = fallback.metadata;
+
+          logger.warn('x402 verification failed, recovered via on-chain fallback', {
+            payment_txid: paymentTxid,
+            payer: payerPrincipal,
+            original_error: x402Error instanceof Error ? x402Error.message : 'Unknown error',
+          });
+        }
       }
 
       if (!paymentTxid || !paymentMetadata) {
@@ -222,24 +246,44 @@ interface OnChainFallbackResult {
   metadata: ConfirmedTxMetadata;
 }
 
-function extractTxidFromPaymentSignature(paymentSignature: string): string | null {
+function decodePaymentSignature(paymentSignature: string): Record<string, unknown> | null {
   try {
-    const decoded = Buffer.from(paymentSignature, 'base64').toString('utf8');
-    const parsed = JSON.parse(decoded) as any;
-    const candidate =
-      parsed?.payload?.transaction ||
-      parsed?.payload?.txid ||
-      parsed?.transaction ||
-      parsed?.txid;
-
-    if (typeof candidate !== 'string' || !candidate.trim()) {
-      return null;
-    }
-
-    return candidate.trim();
+    return JSON.parse(Buffer.from(paymentSignature, 'base64').toString('utf8')) as Record<string, unknown>;
   } catch {
     return null;
   }
+}
+
+function getPaymentSignatureString(
+  parsed: Record<string, unknown> | null,
+  field: string
+): string | null {
+  if (!parsed) {
+    return null;
+  }
+
+  const directValue = parsed[field];
+  if (typeof directValue === 'string' && directValue.trim()) {
+    return directValue.trim();
+  }
+
+  const payload = parsed.payload;
+  if (payload && typeof payload === 'object') {
+    const nestedValue = (payload as Record<string, unknown>)[field];
+    if (typeof nestedValue === 'string' && nestedValue.trim()) {
+      return nestedValue.trim();
+    }
+  }
+
+  return null;
+}
+
+function extractBrowserPaymentTxid(paymentSignature: string): string | null {
+  const parsed = decodePaymentSignature(paymentSignature);
+  return (
+    getPaymentSignatureString(parsed, 'txid') ||
+    getPaymentSignatureString(parsed, 'transactionHash')
+  );
 }
 
 async function tryOnChainPaymentFallback(
@@ -251,7 +295,7 @@ async function tryOnChainPaymentFallback(
     return null;
   }
 
-  const paymentTxid = extractTxidFromPaymentSignature(paymentSignature);
+  const paymentTxid = extractBrowserPaymentTxid(paymentSignature);
   if (!paymentTxid) {
     throw new Error('Fallback verification failed: payment-signature missing transaction payload');
   }

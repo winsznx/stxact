@@ -97,6 +97,37 @@ describe('Payment Flow Integration', () => {
       expect(response.body.payment_info.payer).toBe(buyerPrincipal);
       expect(response.headers['x-stxact-receipt']).toBeDefined();
     });
+
+    test('should accept a browser wallet retry payload that only includes a confirmed txid', async () => {
+      const browserRetrySignature = Buffer.from(
+        JSON.stringify({
+          x402Version: 2,
+          accepted: {
+            network: 'stacks:2147483648',
+            asset: 'STX',
+            amount: '100000',
+            payTo: process.env.SERVICE_PRINCIPAL,
+          },
+          payload: {
+            txid: paymentTxid,
+          },
+        })
+      ).toString('base64');
+
+      const response = await request(app)
+        .get(testEndpoint)
+        .set('payment-signature', browserRetrySignature)
+        .expect(200);
+
+      const receipt = JSON.parse(
+        Buffer.from(response.headers['x-stxact-receipt'], 'base64').toString()
+      );
+
+      expect(response.body.payment_info.txid).toBe(paymentTxid);
+      expect(response.body.payment_info.payer).toBe(buyerPrincipal);
+      expect(receipt.payment_txid).toBe(paymentTxid);
+      expect(receipt.buyer_principal).toBe(buyerPrincipal);
+    });
   });
 
   describe('Flow 3: Payment Binding (Replay Protection)', () => {
