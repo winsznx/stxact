@@ -97,7 +97,7 @@ function WalletStateProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const connect = (redirectTo: string | null = '/seller') => {
+  const connect = (redirectTo: string | null = null) => {
     clearConnectTimeout();
     setIsConnecting(true);
 
