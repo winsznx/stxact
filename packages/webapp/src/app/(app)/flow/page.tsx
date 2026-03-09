@@ -327,7 +327,7 @@ export default function BrowserFlowPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <div className="mx-auto min-w-0 max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
         <div className="mb-10 border-b border pb-6">
           <h1 className="mb-3 font-serif text-4xl font-bold">Live x402 Buyer Flow</h1>
           <p className="max-w-3xl text-lg text-foreground-muted">
@@ -336,8 +336,8 @@ export default function BrowserFlowPage() {
           </p>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[1.35fr_0.95fr]">
-          <div className="space-y-6">
+        <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.95fr)]">
+          <div className="min-w-0 space-y-6">
             <GlassPanel>
               <div className="mb-4 flex items-center justify-between">
                 <div>
@@ -347,12 +347,12 @@ export default function BrowserFlowPage() {
                     against the real x402 v2 payment path.
                   </p>
                 </div>
-                <div className="rounded-none border border bg-background px-3 py-2 text-xs font-medium">
+                <div className="min-w-0 rounded-none border border bg-background px-3 py-2 text-xs font-medium">
                   Buyer wallet: {address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'not connected'}
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid min-w-0 gap-4 md:grid-cols-2">
                 {Object.values(FLOWS).map((flow) => {
                   const active = flow.key === selectedFlow;
                   return (
@@ -365,12 +365,12 @@ export default function BrowserFlowPage() {
                           : 'border hover:border-accent hover:bg-background-raised'
                       }`}
                     >
-                      <div className="mb-2 flex items-center justify-between">
+                      <div className="mb-2 flex min-w-0 items-center justify-between gap-3">
                         <span className="font-serif text-lg font-semibold">{flow.title}</span>
                         <span className="text-xs font-medium text-foreground-subtle">{flow.method}</span>
                       </div>
                       <p className="text-sm text-foreground-muted">{flow.description}</p>
-                      <p className="mt-3 font-mono text-xs text-foreground-subtle">{flow.path}</p>
+                      <p className="mt-3 break-all font-mono text-xs text-foreground-subtle">{flow.path}</p>
                     </button>
                   );
                 })}
@@ -456,7 +456,7 @@ export default function BrowserFlowPage() {
 
             <GlassPanel>
               <h2 className="mb-4 font-serif text-xl font-semibold">Proof artifacts</h2>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid min-w-0 gap-4 md:grid-cols-2">
                 <div className="rounded-none border border bg-background p-4">
                   <p className="text-xs font-medium text-foreground-subtle">x402 challenge</p>
                   {selectedOption ? (
@@ -513,7 +513,7 @@ export default function BrowserFlowPage() {
                   <p className="text-xs font-medium text-foreground-subtle">
                     Facilitator settlement response
                   </p>
-                  <pre className="mt-3 overflow-x-auto text-xs text-foreground">
+                  <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-all text-xs text-foreground">
                     {JSON.stringify(settlement, null, 2)}
                   </pre>
                 </div>
@@ -522,7 +522,7 @@ export default function BrowserFlowPage() {
               {challenge && (
                 <div className="mt-4 rounded-none border border bg-background p-4">
                   <p className="text-xs font-medium text-foreground-subtle">Raw challenge payload</p>
-                  <pre className="mt-3 overflow-x-auto text-xs text-foreground">
+                  <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-all text-xs text-foreground">
                     {JSON.stringify(challenge, null, 2)}
                   </pre>
                 </div>
@@ -539,7 +539,7 @@ export default function BrowserFlowPage() {
             )}
           </div>
 
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <GlassPanel>
               <h2 className="mb-4 font-serif text-xl font-semibold">Outcome</h2>
               {!receipt ? (
@@ -557,15 +557,21 @@ export default function BrowserFlowPage() {
                   <dl className="space-y-2 text-xs">
                     <div className="flex justify-between gap-4">
                       <dt>Buyer</dt>
-                      <dd className="font-mono">{receipt.buyer_principal || 'N/A'}</dd>
+                      <dd className="min-w-0 break-all text-right font-mono">
+                        {receipt.buyer_principal || 'N/A'}
+                      </dd>
                     </div>
                     <div className="flex justify-between gap-4">
                       <dt>Seller</dt>
-                      <dd className="font-mono">{receipt.seller_principal}</dd>
+                      <dd className="min-w-0 break-all text-right font-mono">
+                        {receipt.seller_principal}
+                      </dd>
                     </div>
                     <div className="flex justify-between gap-4">
                       <dt>Payment TX</dt>
-                      <dd className="font-mono">{receipt.payment_txid.slice(0, 18)}...</dd>
+                      <dd className="min-w-0 break-all text-right font-mono">
+                        {receipt.payment_txid.slice(0, 18)}...
+                      </dd>
                     </div>
                     <div className="space-y-1">
                       <dt>Delivery commitment</dt>
@@ -606,7 +612,7 @@ export default function BrowserFlowPage() {
             <GlassPanel>
               <h2 className="mb-4 font-serif text-xl font-semibold">Protected response</h2>
               {responseBody ? (
-                <pre className="max-h-[28rem] overflow-auto rounded-none border border bg-background p-4 text-xs text-foreground">
+                <pre className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words rounded-none border border bg-background p-4 text-xs text-foreground">
                   {JSON.stringify(responseBody, null, 2)}
                 </pre>
               ) : (

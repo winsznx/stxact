@@ -19,12 +19,18 @@ interface NavbarProps {
   links?: NavItem[];
   showDesktopLinks?: boolean;
   showWalletButton?: boolean;
+  hideBrandOnDesktop?: boolean;
+  contained?: boolean;
+  showBrand?: boolean;
 }
 
 export function Navbar({
   links = [],
   showDesktopLinks = true,
   showWalletButton = true,
+  hideBrandOnDesktop = false,
+  contained = true,
+  showBrand = true,
 }: NavbarProps) {
   const { theme, setTheme } = useTheme();
   const pathname = usePathname();
@@ -49,6 +55,8 @@ export function Navbar({
   const hasMobileMenu = links.length > 0 || showWalletButton;
   const mobileMenuVisibilityClass = showDesktopLinks ? 'md:hidden' : 'lg:hidden';
   const mobileMenuOpen = mobileMenuState.open && mobileMenuState.pathname === pathname;
+  const containerClassName = contained ? 'mx-auto max-w-7xl px-4 sm:px-6 lg:px-8' : 'w-full px-4 sm:px-6 lg:px-8';
+  const brandClassName = hideBrandOnDesktop ? 'group lg:hidden' : 'group';
 
   const toggleMobileMenu = () => {
     setMobileMenuState((current) => {
@@ -69,14 +77,18 @@ export function Navbar({
 
   return (
     <nav className="sticky top-0 z-50 border-b border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className={containerClassName}>
         <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="group">
-            <BrandLogo
-              iconClassName="transition-transform group-hover:rotate-2"
-              labelClassName="transition-colors group-hover:text-accent"
-            />
-          </Link>
+          {showBrand ? (
+            <Link href="/" className={brandClassName}>
+              <BrandLogo
+                iconClassName="transition-transform group-hover:rotate-2"
+                labelClassName="transition-colors group-hover:text-accent"
+              />
+            </Link>
+          ) : (
+            <div />
+          )}
 
           {/* Desktop Navigation */}
           {showDesktopLinks && links.length > 0 && (

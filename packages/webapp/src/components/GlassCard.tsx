@@ -31,7 +31,7 @@ export function GlassCard({ children, className, variant = 'default', hover = fa
 
 export function GlassPanel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={clsx('glass-strong rounded-none p-6', className)}>
+    <div className={clsx('glass-strong min-w-0 rounded-none p-6', className)}>
       {children}
     </div>
   );

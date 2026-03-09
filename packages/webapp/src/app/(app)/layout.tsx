@@ -10,8 +10,13 @@ export default function DashboardLayout({
     return (
         <div className="flex min-h-screen">
             <Sidebar />
-            <main className="flex-1">
-                <Navbar links={appNavbarLinks} showDesktopLinks={false} />
+            <main className="min-w-0 flex-1 overflow-x-hidden">
+                <Navbar
+                    links={appNavbarLinks}
+                    showDesktopLinks={false}
+                    showBrand={false}
+                    contained={false}
+                />
                 {children}
             </main>
         </div>
