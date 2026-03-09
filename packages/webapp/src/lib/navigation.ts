@@ -1,5 +1,6 @@
 import {
   AlertCircle,
+  Coins,
   FileCheck2,
   FilePlus2,
   LayoutDashboard,
@@ -22,6 +23,7 @@ export interface NavItem {
 
 export const appNavigation: AppNavItem[] = [
   { name: 'Directory', href: '/directory', icon: Search },
+  { name: 'Live Flow', href: '/flow', icon: Coins },
   { name: 'Receipts', href: '/receipts', icon: FileCheck2 },
   { name: 'Verify', href: '/receipts/verify', icon: ShieldCheck },
   { name: 'Disputes', href: '/disputes', icon: AlertCircle },
@@ -53,6 +55,7 @@ export const footerLegalLinks: NavItem[] = [
 ];
 
 export const docsQuickLinks: NavItem[] = [
+  { name: 'Live x402 Flow', href: '/flow' },
   { name: 'Service Directory', href: '/directory' },
   { name: 'Receipt Verification', href: '/receipts/verify' },
   { name: 'Dispute Workflow', href: '/disputes/new' },

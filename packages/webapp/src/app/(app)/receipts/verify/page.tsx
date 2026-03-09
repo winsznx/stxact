@@ -1,17 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, CheckCircle2, AlertTriangle, FileUp } from 'lucide-react';
 import { api, type Receipt } from '@/lib/api';
 import { GlassPanel } from '@/components/GlassCard';
-
-async function sha256Hex(payload: Uint8Array): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new Uint8Array(payload));
-  return Array.from(new Uint8Array(digest))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
-}
+import { computeBinaryHash, computeDeliverableHashFromText } from '@/lib/delivery-hash';
+import { readLatestBrowserFlow } from '@/lib/x402-browser';
 
 export default function VerifyReceiptPage() {
   const [input, setInput] = useState('');
@@ -33,6 +28,33 @@ export default function VerifyReceiptPage() {
   const [artifactHash, setArtifactHash] = useState<string | null>(null);
   const [artifactError, setArtifactError] = useState<string | null>(null);
   const [hashingArtifact, setHashingArtifact] = useState(false);
+  const [loadedLatestFlow, setLoadedLatestFlow] = useState(false);
+  const [checkedLatestFlow, setCheckedLatestFlow] = useState(false);
+
+  useEffect(() => {
+    if (checkedLatestFlow) {
+      return;
+    }
+
+    const latestFlow = readLatestBrowserFlow();
+    let hydratedFromSession = false;
+
+    if (!input.trim() && latestFlow.receipt) {
+      setInput(JSON.stringify(latestFlow.receipt, null, 2));
+      hydratedFromSession = true;
+    }
+
+    if (!artifactText.trim() && latestFlow.artifactText) {
+      setArtifactText(latestFlow.artifactText);
+      hydratedFromSession = true;
+    }
+
+    if (hydratedFromSession) {
+      setLoadedLatestFlow(true);
+    }
+
+    setCheckedLatestFlow(true);
+  }, [artifactText, checkedLatestFlow, input]);
 
   const parsedInput = useMemo(() => {
     if (!input.trim()) return null;
@@ -82,16 +104,12 @@ export default function VerifyReceiptPage() {
 
     setHashingArtifact(true);
     try {
-      let payload: Uint8Array;
       if (artifactFile) {
         const buffer = await artifactFile.arrayBuffer();
-        payload = new Uint8Array(buffer);
+        setArtifactHash(await computeBinaryHash(new Uint8Array(buffer)));
       } else {
-        payload = new TextEncoder().encode(artifactText);
+        setArtifactHash(await computeDeliverableHashFromText(artifactText));
       }
-
-      const hash = await sha256Hex(payload);
-      setArtifactHash(hash);
     } catch (hashError) {
       setArtifactError(hashError instanceof Error ? hashError.message : 'Failed to compute artifact hash');
     } finally {
@@ -127,6 +145,12 @@ export default function VerifyReceiptPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
             <GlassPanel>
+              {loadedLatestFlow && (
+                <div className="mb-4 rounded-none border border-success bg-success/10 p-3 text-xs text-success">
+                  Loaded the latest browser-paid receipt and response artifact from this session.
+                </div>
+              )}
+
               <label htmlFor="receipt-json" className="mb-2 block text-sm font-medium">
                 Receipt JSON
               </label>

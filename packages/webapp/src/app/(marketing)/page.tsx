@@ -38,10 +38,10 @@ export default function HomePage() {
                 </Link>
 
                 <Link
-                  href="/receipts"
+                  href="/flow"
                   className="inline-flex items-center justify-center gap-2 rounded-none border-2 border bg-background px-6 py-3 font-semibold transition-colors hover:border-accent hover:bg-background-raised"
                 >
-                  Verify Receipt
+                  Run Live Flow
                 </Link>
               </div>
             </div>
