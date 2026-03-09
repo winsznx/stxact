@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppConfig, UserSession, type UserData } from '@stacks/connect';
 import { Connect, useConnect } from '@stacks/connect-react';
@@ -44,6 +44,7 @@ function WalletStateProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [balance, setBalance] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const connectTimeoutRef = useRef<number | null>(null);
 
   const userData = useMemo<UserData | null>(() => {
     if (!userSession?.isUserSignedIn()) {
@@ -87,24 +88,55 @@ function WalletStateProvider({ children }: { children: React.ReactNode }) {
     };
   }, [address]);
 
+  useEffect(() => {
+    return () => {
+      if (connectTimeoutRef.current !== null) {
+        window.clearTimeout(connectTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const clearConnectTimeout = () => {
+    if (connectTimeoutRef.current !== null) {
+      window.clearTimeout(connectTimeoutRef.current);
+      connectTimeoutRef.current = null;
+    }
+  };
+
   const connect = (redirectTo: string | null = '/seller') => {
+    clearConnectTimeout();
     setIsConnecting(true);
-    authenticate({
-      onFinish: (payload) => {
-        const session = payload.userSession || userSession;
-        if (session?.isUserSignedIn() && redirectTo) {
-          router.push(redirectTo);
-        }
-        setIsConnecting(false);
-      },
-      onCancel: () => {
-        setIsConnecting(false);
-      },
-      appDetails: {
-        name: 'stxact',
-        icon: typeof window !== 'undefined' ? `${window.location.origin}/icon` : '/icon',
-      },
-    });
+
+    connectTimeoutRef.current = window.setTimeout(() => {
+      console.error('Wallet authentication timed out before finishing');
+      connectTimeoutRef.current = null;
+      setIsConnecting(false);
+    }, 15_000);
+
+    try {
+      authenticate({
+        onFinish: (payload) => {
+          clearConnectTimeout();
+          const session = payload.userSession || userSession;
+          if (session?.isUserSignedIn() && redirectTo) {
+            router.push(redirectTo);
+          }
+          setIsConnecting(false);
+        },
+        onCancel: () => {
+          clearConnectTimeout();
+          setIsConnecting(false);
+        },
+        appDetails: {
+          name: 'stxact',
+          icon: typeof window !== 'undefined' ? `${window.location.origin}/icon` : '/icon',
+        },
+      });
+    } catch (error) {
+      clearConnectTimeout();
+      console.error('Failed to open wallet authentication flow', error);
+      setIsConnecting(false);
+    }
   };
 
   const disconnect = () => {
