@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createBrowserPaymentSignature,
   decodePaymentRequiredHeader,
+  decodePaymentResponseHeader,
   formatMicroStx,
   selectPaymentOption,
 } from '@/lib/x402-browser';
@@ -81,7 +82,7 @@ describe('x402 browser helpers', () => {
     expect(selection?.payTo).toBe('ST123');
   });
 
-  it('encodes a txid-based retry payload for browser-broadcast payments', () => {
+  it('encodes a signed-transaction retry payload for the real browser x402 flow', () => {
     const encoded = createBrowserPaymentSignature({
       x402Version: 2,
       accepted: {
@@ -92,7 +93,7 @@ describe('x402 browser helpers', () => {
         payTo: 'ST123',
       },
       payload: {
-        txid: '0xabc123',
+        transaction: 'deadbeefcafebabe',
       },
       payer: 'STBUYER',
     });
@@ -102,10 +103,28 @@ describe('x402 browser helpers', () => {
         x402Version: 2,
         payer: 'STBUYER',
         payload: {
-          txid: '0xabc123',
+          transaction: 'deadbeefcafebabe',
         },
       })
     );
+  });
+
+  it('decodes the facilitator settlement header emitted after a successful retry', () => {
+    const encoded = btoa(
+      JSON.stringify({
+        success: true,
+        payer: 'STBUYER',
+        transaction: '0xabc123',
+        network: 'stacks:2147483648',
+      })
+    );
+
+    expect(decodePaymentResponseHeader(encoded)).toEqual({
+      success: true,
+      payer: 'STBUYER',
+      transaction: '0xabc123',
+      network: 'stacks:2147483648',
+    });
   });
 
   it('formats microstx values for the buyer UI', () => {

@@ -28,9 +28,17 @@ export interface X402BrowserRetryPayload {
   resource?: X402PaymentRequiredResponse['resource'];
   accepted: X402PaymentOption;
   payload: {
-    txid: string;
+    transaction: string;
   };
   payer?: string;
+}
+
+export interface X402PaymentResponse {
+  success: boolean;
+  payer?: string;
+  transaction: string;
+  network: string;
+  errorReason?: string;
 }
 
 function decodeBase64Json<T>(value: string): T | null {
@@ -111,6 +119,14 @@ export function selectPaymentOption(
 
 export function createBrowserPaymentSignature(payload: X402BrowserRetryPayload): string {
   return encodeBase64Json(payload);
+}
+
+export function decodePaymentResponseHeader(headerValue: string | null): X402PaymentResponse | null {
+  if (!headerValue) {
+    return null;
+  }
+
+  return decodeBase64Json<X402PaymentResponse>(headerValue);
 }
 
 export function decodeReceiptHeader(headerValue: string | null): Receipt | null {
