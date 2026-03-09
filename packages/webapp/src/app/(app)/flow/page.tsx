@@ -17,6 +17,7 @@ import { api, type Receipt } from '@/lib/api';
 import {
   createBrowserPaymentSignature,
   decodePaymentRequiredHeader,
+  decodePaymentResponseHeader,
   decodeReceiptHeader,
   formatMicroStx,
   normalizePaymentRequiredResponse,
@@ -24,19 +25,16 @@ import {
   storeLatestBrowserFlow,
   type X402PaymentOption,
   type X402PaymentRequiredResponse,
+  type X402PaymentResponse,
 } from '@/lib/x402-browser';
-import {
-  getTransactionExplorerUrl,
-  transferStxWithWallet,
-  waitForTransactionConfirmation,
-} from '@/lib/wallet-transactions';
+import { getTransactionExplorerUrl, signX402PaymentWithWallet } from '@/lib/wallet-transactions';
 
 type DemoFlowKey = 'premium-data' | 'ai-inference';
 type FlowStage =
   | 'idle'
   | 'requesting'
   | 'awaiting_wallet'
-  | 'confirming'
+  | 'settling'
   | 'retrying'
   | 'success'
   | 'error';
@@ -157,6 +155,7 @@ export default function BrowserFlowPage() {
   const [selectedOption, setSelectedOption] = useState<X402PaymentOption | null>(null);
   const [paymentTxId, setPaymentTxId] = useState('');
   const [paymentExplorerUrl, setPaymentExplorerUrl] = useState('');
+  const [settlement, setSettlement] = useState<X402PaymentResponse | null>(null);
   const [responseBody, setResponseBody] = useState<unknown>(null);
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -184,6 +183,7 @@ export default function BrowserFlowPage() {
     setSelectedOption(null);
     setPaymentTxId('');
     setPaymentExplorerUrl('');
+    setSettlement(null);
     setResponseBody(null);
     setReceipt(null);
 
@@ -238,7 +238,7 @@ export default function BrowserFlowPage() {
       setSelectedOption(acceptedOption);
       setStage('awaiting_wallet');
 
-      const payment = await transferStxWithWallet({
+      const payment = await signX402PaymentWithWallet({
         recipient: acceptedOption.payTo,
         amountMicroStx: acceptedOption.amount,
         memo: activeFlow.key === 'premium-data' ? 'stxact-proof' : 'stxact-ai',
@@ -247,16 +247,14 @@ export default function BrowserFlowPage() {
 
       setPaymentTxId(payment.txId);
       setPaymentExplorerUrl(payment.explorerUrl);
-      setStage('confirming');
-
-      await waitForTransactionConfirmation(payment.txId);
+      setStage('settling');
 
       const paymentSignature = createBrowserPaymentSignature({
         x402Version: 2,
         resource: decodedChallenge.resource,
         accepted: acceptedOption,
         payload: {
-          txid: payment.txId,
+          transaction: payment.signedTransaction,
         },
         payer: address,
       });
@@ -274,9 +272,24 @@ export default function BrowserFlowPage() {
         (paidResponse.headers.get('X-stxact-Receipt-ID')
           ? await api.getReceipt(paidResponse.headers.get('X-stxact-Receipt-ID') as string)
           : null);
+      const paymentResponse = decodePaymentResponseHeader(
+        paidResponse.headers.get('payment-response')
+      );
 
       if (!resolvedReceipt) {
         throw new Error('Paid response completed but did not return a signed receipt');
+      }
+
+      if (paymentResponse) {
+        setSettlement(paymentResponse);
+      }
+
+      if (paymentResponse?.transaction) {
+        setPaymentTxId(paymentResponse.transaction);
+        setPaymentExplorerUrl(getTransactionExplorerUrl(paymentResponse.transaction));
+      } else if (resolvedReceipt.payment_txid) {
+        setPaymentTxId(resolvedReceipt.payment_txid);
+        setPaymentExplorerUrl(getTransactionExplorerUrl(resolvedReceipt.payment_txid));
       }
 
       setReceipt(resolvedReceipt);
@@ -293,21 +306,21 @@ export default function BrowserFlowPage() {
     {
       label: 'Receive x402 challenge',
       active: stage === 'requesting',
-      complete: ['awaiting_wallet', 'confirming', 'retrying', 'success'].includes(stage),
+      complete: ['awaiting_wallet', 'settling', 'retrying', 'success'].includes(stage),
     },
     {
-      label: 'Broadcast wallet payment',
+      label: 'Sign wallet payment',
       active: stage === 'awaiting_wallet',
-      complete: ['confirming', 'retrying', 'success'].includes(stage) && !!paymentTxId,
+      complete: ['settling', 'retrying', 'success'].includes(stage) && !!paymentTxId,
     },
     {
-      label: 'Wait for chain confirmation',
-      active: stage === 'confirming',
-      complete: ['retrying', 'success'].includes(stage),
+      label: 'Retry through facilitator',
+      active: stage === 'settling' || stage === 'retrying',
+      complete: stage === 'success',
     },
     {
-      label: 'Retry and capture receipt',
-      active: stage === 'retrying',
+      label: 'Capture signed receipt',
+      active: false,
       complete: stage === 'success' && !!receipt,
     },
   ];
@@ -318,8 +331,8 @@ export default function BrowserFlowPage() {
         <div className="mb-10 border-b border pb-6">
           <h1 className="mb-3 font-serif text-4xl font-bold">Live x402 Buyer Flow</h1>
           <p className="max-w-3xl text-lg text-foreground-muted">
-            Request a protected endpoint, pay the x402 challenge with the connected wallet, wait for
-            on-chain confirmation, and land directly in the receipt, verification, and dispute lifecycle.
+            Request a protected endpoint, sign the x402 payment with the connected wallet, let the
+            facilitator settle it, and land directly in the receipt, verification, and dispute lifecycle.
           </p>
         </div>
 
@@ -330,7 +343,8 @@ export default function BrowserFlowPage() {
                 <div>
                   <h2 className="font-serif text-xl font-semibold">Choose the live flow</h2>
                   <p className="mt-1 text-sm text-foreground-muted">
-                    Use Premium Data for the fastest demo, or AI Inference to show a paid POST flow.
+                    Use Premium Data for the fastest demo, or AI Inference to show a paid POST flow
+                    against the real x402 v2 payment path.
                   </p>
                 </div>
                 <div className="rounded-none border border bg-background px-3 py-2 text-xs font-medium">
@@ -380,10 +394,18 @@ export default function BrowserFlowPage() {
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
                   onClick={handleStartFlow}
-                  disabled={stage === 'requesting' || stage === 'awaiting_wallet' || stage === 'confirming' || stage === 'retrying'}
+                  disabled={
+                    stage === 'requesting' ||
+                    stage === 'awaiting_wallet' ||
+                    stage === 'settling' ||
+                    stage === 'retrying'
+                  }
                   className="inline-flex items-center gap-2 rounded-none border border-foreground bg-accent px-5 py-3 text-sm font-semibold text-accent-contrast transition-colors hover:bg-accent-hover disabled:opacity-50"
                 >
-                  {stage === 'requesting' || stage === 'awaiting_wallet' || stage === 'confirming' || stage === 'retrying' ? (
+                  {stage === 'requesting' ||
+                  stage === 'awaiting_wallet' ||
+                  stage === 'settling' ||
+                  stage === 'retrying' ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : isConnected ? (
                     <ArrowRight className="h-4 w-4" />
@@ -419,12 +441,12 @@ export default function BrowserFlowPage() {
                       <p className="text-xs text-foreground-muted">
                         {step.label === 'Receive x402 challenge' &&
                           'Initial request should return a payment-required challenge instead of content.'}
-                        {step.label === 'Broadcast wallet payment' &&
-                          'Wallet signs and broadcasts the STX transfer from the connected buyer account.'}
-                        {step.label === 'Wait for chain confirmation' &&
-                          'The page polls Hiro until the payment transaction is confirmed.'}
-                        {step.label === 'Retry and capture receipt' &&
-                          'Once confirmed, the app retries automatically and stores the returned signed receipt.'}
+                        {step.label === 'Sign wallet payment' &&
+                          'The wallet signs the unsigned STX transfer without broadcasting it locally.'}
+                        {step.label === 'Retry through facilitator' &&
+                          'The signed transaction is sent back in the x402 v2 payment-signature payload and settled server-side.'}
+                        {step.label === 'Capture signed receipt' &&
+                          'Once settlement succeeds, the app stores the returned signed receipt and delivered payload.'}
                       </p>
                     </div>
                   </div>
@@ -480,11 +502,22 @@ export default function BrowserFlowPage() {
                     </div>
                   ) : (
                     <p className="mt-3 text-sm text-foreground-muted">
-                      The wallet-broadcast txid will appear here before the retry step.
+                      The signed payment transaction id will appear here before the paid retry finishes.
                     </p>
                   )}
                 </div>
               </div>
+
+              {settlement && (
+                <div className="mt-4 rounded-none border border bg-background p-4">
+                  <p className="text-xs font-medium text-foreground-subtle">
+                    Facilitator settlement response
+                  </p>
+                  <pre className="mt-3 overflow-x-auto text-xs text-foreground">
+                    {JSON.stringify(settlement, null, 2)}
+                  </pre>
+                </div>
+              )}
 
               {challenge && (
                 <div className="mt-4 rounded-none border border bg-background p-4">
