@@ -1,14 +1,13 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { connect as connectWallet, disconnect as disconnectWallet, getLocalStorage } from '@stacks/connect';
 import { useRouter } from 'next/navigation';
-import { AppConfig, UserSession, type UserData } from '@stacks/connect';
-import { Connect, useConnect } from '@stacks/connect-react';
 import { useHydrated } from '@/hooks/useHydrated';
 
 interface WalletContextType {
   address: string | null;
-  userData: UserData | null;
+  userData: null;
   balance: string | null;
   isConnected: boolean;
   isConnecting: boolean;
@@ -18,46 +17,41 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-const appConfig = new AppConfig(['store_write', 'publish_data']);
-
-function getSession() {
-  if (typeof window !== 'undefined') {
-    return new UserSession({ appConfig });
-  }
-  return undefined;
-}
-
-function getAddressFromUserData(userData: UserData) {
-  const isMainnet = process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet';
-  const profile = userData.profile as {
-    stxAddress?: {
-      mainnet?: string;
-      testnet?: string;
-    };
-  };
-
-  return isMainnet ? profile.stxAddress?.mainnet ?? null : profile.stxAddress?.testnet ?? null;
+function readAddressFromStorage(): string | null {
+  const data = getLocalStorage();
+  return data?.addresses?.stx?.[0]?.address ?? null;
 }
 
 function WalletStateProvider({ children }: { children: React.ReactNode }) {
-  const { authenticate, userSession } = useConnect();
   const router = useRouter();
+  const [address, setAddress] = useState<string | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const connectTimeoutRef = useRef<number | null>(null);
 
-  const userData = useMemo<UserData | null>(() => {
-    if (!userSession?.isUserSignedIn()) {
-      return null;
-    }
+  const refreshWalletState = () => {
+    setAddress(readAddressFromStorage());
+  };
 
-    return userSession.loadUserData();
-  }, [userSession]);
+  useEffect(() => {
+    refreshWalletState();
 
-  const address = useMemo(() => (userData ? getAddressFromUserData(userData) : null), [userData]);
+    const syncWalletState = () => refreshWalletState();
+
+    window.addEventListener('storage', syncWalletState);
+    window.addEventListener('focus', syncWalletState);
+    document.addEventListener('visibilitychange', syncWalletState);
+
+    return () => {
+      window.removeEventListener('storage', syncWalletState);
+      window.removeEventListener('focus', syncWalletState);
+      document.removeEventListener('visibilitychange', syncWalletState);
+    };
+  }, []);
 
   useEffect(() => {
     if (!address) {
+      setBalance(null);
       return undefined;
     }
 
@@ -108,46 +102,47 @@ function WalletStateProvider({ children }: { children: React.ReactNode }) {
     setIsConnecting(true);
 
     connectTimeoutRef.current = window.setTimeout(() => {
-      console.error('Wallet authentication timed out before finishing');
+      console.error('Wallet connection timed out before local state updated');
       connectTimeoutRef.current = null;
+      refreshWalletState();
       setIsConnecting(false);
     }, 15_000);
 
-    try {
-      authenticate({
-        onFinish: (payload) => {
-          clearConnectTimeout();
-          const session = payload.userSession || userSession;
-          if (session?.isUserSignedIn() && redirectTo) {
-            router.push(redirectTo);
-          }
-          setIsConnecting(false);
-        },
-        onCancel: () => {
-          clearConnectTimeout();
-          setIsConnecting(false);
-        },
-        appDetails: {
-          name: 'stxact',
-          icon: typeof window !== 'undefined' ? `${window.location.origin}/icon` : '/icon',
-        },
-      });
-    } catch (error) {
-      clearConnectTimeout();
-      console.error('Failed to open wallet authentication flow', error);
-      setIsConnecting(false);
-    }
+    void (async () => {
+      try {
+        await connectWallet({
+          forceWalletSelect: true,
+          network: process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet',
+        });
+
+        refreshWalletState();
+        clearConnectTimeout();
+        setIsConnecting(false);
+
+        if (readAddressFromStorage() && redirectTo) {
+          router.push(redirectTo);
+        }
+      } catch (error) {
+        clearConnectTimeout();
+        console.error('Failed to connect wallet', error);
+        refreshWalletState();
+        setIsConnecting(false);
+      }
+    })();
   };
 
   const disconnect = () => {
-    userSession?.signUserOut();
+    disconnectWallet();
+    clearConnectTimeout();
     setIsConnecting(false);
+    setAddress(null);
+    setBalance(null);
   };
 
   const value = {
     address,
-    userData,
-    balance: address ? balance : null,
+    userData: null,
+    balance,
     isConnected: !!address,
     isConnecting,
     connect,
@@ -159,23 +154,10 @@ function WalletStateProvider({ children }: { children: React.ReactNode }) {
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
   const hydrated = useHydrated();
-  const [session] = useState<UserSession | undefined>(() => getSession());
 
-  if (!hydrated || !session) return <>{children}</>;
+  if (!hydrated) return <>{children}</>;
 
-  const authOptions = {
-    appDetails: {
-      name: 'stxact',
-      icon: typeof window !== 'undefined' ? `${window.location.origin}/icon` : '/icon',
-    },
-    userSession: session,
-  };
-
-  return (
-    <Connect authOptions={authOptions}>
-      <WalletStateProvider>{children}</WalletStateProvider>
-    </Connect>
-  );
+  return <WalletStateProvider>{children}</WalletStateProvider>;
 }
 
 export function useWallet() {
