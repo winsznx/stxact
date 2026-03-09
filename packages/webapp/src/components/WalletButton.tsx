@@ -25,7 +25,7 @@ export function WalletButton() {
   if (!isConnected || !address) {
     return (
       <button
-        onClick={connect}
+        onClick={() => connect()}
         disabled={isConnecting}
         className="inline-flex items-center gap-2 rounded-none border border bg-accent px-4 py-2 font-medium text-accent-contrast transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50"
       >

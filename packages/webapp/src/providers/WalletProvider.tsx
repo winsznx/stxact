@@ -12,7 +12,7 @@ interface WalletContextType {
   balance: string | null;
   isConnected: boolean;
   isConnecting: boolean;
-  connect: () => void;
+  connect: (redirectTo?: string | null) => void;
   disconnect: () => void;
 }
 
@@ -87,13 +87,13 @@ function WalletStateProvider({ children }: { children: React.ReactNode }) {
     };
   }, [address]);
 
-  const connect = () => {
+  const connect = (redirectTo: string | null = '/seller') => {
     setIsConnecting(true);
     authenticate({
       onFinish: (payload) => {
         const session = payload.userSession || userSession;
-        if (session?.isUserSignedIn()) {
-          router.push('/seller');
+        if (session?.isUserSignedIn() && redirectTo) {
+          router.push(redirectTo);
         }
         setIsConnecting(false);
       },
