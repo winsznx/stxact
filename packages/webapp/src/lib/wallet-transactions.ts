@@ -1,23 +1,23 @@
-export interface BroadcastedPayment {
-  txId: string;
-  explorerUrl: string;
+export interface ConnectedStacksAccount {
+  address: string;
+  publicKey: string;
 }
 
-export interface ConfirmedTransaction {
+export interface SignedPaymentTransaction {
+  signedTransaction: string;
   txId: string;
-  blockHeight: number;
-  blockHash: string;
-  senderAddress: string | null;
-  recipientAddress: string | null;
-  amountMicroStx: string | null;
+  explorerUrl: string;
 }
 
 function getStacksNetwork() {
   return process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
 }
 
-function getStacksApiUrl() {
-  return process.env.NEXT_PUBLIC_STACKS_API_URL || 'https://api.testnet.hiro.so';
+function getAppDetails() {
+  return {
+    name: 'stxact',
+    icon: typeof window !== 'undefined' ? `${window.location.origin}/icon` : '/icon',
+  };
 }
 
 export function getTransactionExplorerUrl(txId: string): string {
@@ -29,103 +29,98 @@ export function normalizeTxId(txId: string): string {
   return txId.startsWith('0x') ? txId : `0x${txId}`;
 }
 
-export async function transferStxWithWallet(options: {
+function isStacksAddressRecord(
+  candidate: unknown
+): candidate is {
+  address: string;
+  publicKey: string;
+} {
+  return (
+    !!candidate &&
+    typeof candidate === 'object' &&
+    typeof (candidate as { address?: unknown }).address === 'string' &&
+    typeof (candidate as { publicKey?: unknown }).publicKey === 'string' &&
+    (candidate as { address: string }).address.toUpperCase().startsWith('S')
+  );
+}
+
+export async function getConnectedStacksAccount(
+  expectedAddress?: string | null
+): Promise<ConnectedStacksAccount> {
+  const { request } = await import('@stacks/connect');
+  const result = (await request('getAddresses')) as {
+    addresses?: unknown[];
+  };
+
+  const accounts = Array.isArray(result.addresses)
+    ? result.addresses.filter(isStacksAddressRecord)
+    : [];
+
+  if (!accounts.length) {
+    throw new Error('Wallet did not return a connected STX account with a public key');
+  }
+
+  const normalizedExpected = expectedAddress?.toUpperCase();
+  const account =
+    (normalizedExpected
+      ? accounts.find((candidate) => candidate.address.toUpperCase() === normalizedExpected)
+      : undefined) || accounts[0];
+
+  if (normalizedExpected && account.address.toUpperCase() !== normalizedExpected) {
+    throw new Error(
+      `Wallet returned ${account.address}, but the current buyer flow is connected as ${expectedAddress}`
+    );
+  }
+
+  return {
+    address: account.address,
+    publicKey: account.publicKey,
+  };
+}
+
+export async function signX402PaymentWithWallet(options: {
   recipient: string;
   amountMicroStx: string;
   memo?: string;
-  stxAddress?: string;
-}): Promise<BroadcastedPayment> {
-  const { openSTXTransfer } = await import('@stacks/connect');
+  stxAddress?: string | null;
+}): Promise<SignedPaymentTransaction> {
+  const { bytesToHex } = await import('@stacks/common');
+  const { openSignTransaction } = await import('@stacks/connect');
+  const { makeUnsignedSTXTokenTransfer } = await import('@stacks/transactions');
+
+  const account = await getConnectedStacksAccount(options.stxAddress);
+  const unsignedTransaction = await makeUnsignedSTXTokenTransfer({
+    recipient: options.recipient,
+    amount: BigInt(options.amountMicroStx),
+    memo: options.memo ?? '',
+    publicKey: account.publicKey,
+    network: getStacksNetwork(),
+  });
+
+  const txHex = unsignedTransaction.serialize();
 
   return new Promise((resolve, reject) => {
-    openSTXTransfer({
-      recipient: options.recipient,
-      amount: options.amountMicroStx,
-      memo: options.memo,
-      stxAddress: options.stxAddress,
+    openSignTransaction({
+      txHex,
       network: getStacksNetwork(),
-      appDetails: {
-        name: 'stxact',
-        icon: typeof window !== 'undefined' ? `${window.location.origin}/icon` : '/icon',
-      },
+      appDetails: getAppDetails(),
       onFinish: (data) => {
-        if (!data.txId) {
-          reject(new Error('Wallet did not return a transaction id'));
-          return;
-        }
+        const transaction = data.stacksTransaction as {
+          serialize: () => string | Uint8Array;
+          txid: () => string;
+        };
+        const serialized = transaction.serialize();
+        const signedTransaction =
+          typeof serialized === 'string' ? serialized : bytesToHex(serialized);
+        const txId = normalizeTxId(transaction.txid());
 
         resolve({
-          txId: normalizeTxId(data.txId),
-          explorerUrl: getTransactionExplorerUrl(data.txId),
+          signedTransaction,
+          txId,
+          explorerUrl: getTransactionExplorerUrl(txId),
         });
       },
-      onCancel: () => reject(new Error('Wallet payment cancelled')),
+      onCancel: () => reject(new Error('Wallet payment signing cancelled')),
     });
   });
-}
-
-export async function waitForTransactionConfirmation(
-  txId: string,
-  options: {
-    timeoutMs?: number;
-    intervalMs?: number;
-  } = {}
-): Promise<ConfirmedTransaction> {
-  const timeoutMs = options.timeoutMs ?? 180_000;
-  const intervalMs = options.intervalMs ?? 2_500;
-  const startedAt = Date.now();
-  const normalizedTxId = normalizeTxId(txId);
-
-  while (Date.now() - startedAt < timeoutMs) {
-    const response = await fetch(`${getStacksApiUrl()}/extended/v1/tx/${normalizedTxId}`, {
-      cache: 'no-store',
-    });
-
-    if (response.ok) {
-      const txData = (await response.json()) as {
-        tx_status?: string;
-        block_height?: number;
-        block_hash?: string;
-        sender_address?: string;
-        tx_type?: string;
-        token_transfer?: {
-          recipient_address?: string;
-          amount?: string | number;
-        };
-      };
-
-      if (txData.tx_status === 'success' && txData.block_height && txData.block_hash) {
-        return {
-          txId: normalizedTxId,
-          blockHeight: Number(txData.block_height),
-          blockHash: String(txData.block_hash),
-          senderAddress: typeof txData.sender_address === 'string' ? txData.sender_address : null,
-          recipientAddress:
-            txData.tx_type === 'token_transfer' &&
-            typeof txData.token_transfer?.recipient_address === 'string'
-              ? txData.token_transfer.recipient_address
-              : null,
-          amountMicroStx:
-            txData.tx_type === 'token_transfer' && txData.token_transfer?.amount !== undefined
-              ? String(txData.token_transfer.amount)
-              : null,
-        };
-      }
-
-      if (
-        txData.tx_status &&
-        txData.tx_status !== 'pending' &&
-        txData.tx_status !== 'success' &&
-        txData.tx_status !== 'pending_processing'
-      ) {
-        throw new Error(`Payment transaction failed with status: ${txData.tx_status}`);
-      }
-    }
-
-    await new Promise((resolve) => {
-      window.setTimeout(resolve, intervalMs);
-    });
-  }
-
-  throw new Error('Timed out waiting for on-chain payment confirmation');
 }
