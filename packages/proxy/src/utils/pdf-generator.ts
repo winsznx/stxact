@@ -33,6 +33,11 @@ interface CardRow {
   mono?: boolean;
 }
 
+interface SummaryMetric {
+  label: string;
+  value: string;
+}
+
 const COLORS = {
   ink: '#111111',
   muted: '#666666',
@@ -129,27 +134,27 @@ function resolveReceiptUrl(receiptId: string): string {
 
 function measureCardHeight(doc: PDFKit.PDFDocument, width: number, rows: CardRow[]): number {
   const innerWidth = width - 28;
-  let height = 20;
+  let height = 18;
 
-  doc.font('Helvetica-Bold').fontSize(12);
+  doc.font('Helvetica-Bold').fontSize(11);
   height += doc.heightOfString('Section', { width: innerWidth });
-  height += 12;
+  height += 10;
 
   for (const row of rows) {
     doc.font('Helvetica-Bold').fontSize(8);
     height += doc.heightOfString(row.label.toUpperCase(), { width: innerWidth });
-    height += 4;
+    height += 3;
 
-    doc.font(row.mono ? 'Courier' : 'Helvetica').fontSize(row.mono ? 8.5 : 10);
+    doc.font(row.mono ? 'Courier' : 'Helvetica').fontSize(row.mono ? 8.25 : 9.5);
     height += doc.heightOfString(row.value, {
       width: innerWidth,
       align: 'left',
       lineGap: row.mono ? 1.5 : 1,
     });
-    height += 10;
+    height += 8;
   }
 
-  return height + 8;
+  return height + 6;
 }
 
 function drawCard(
@@ -170,11 +175,11 @@ function drawCard(
     .fillAndStroke(COLORS.paper, COLORS.border)
     .restore();
 
-  doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(12).text(title, innerX, y + 14, {
+  doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(11).text(title, innerX, y + 14, {
     width: innerWidth,
   });
 
-  let cursorY = y + 38;
+  let cursorY = y + 34;
 
   for (const row of rows) {
     doc.fillColor(COLORS.muted).font('Helvetica-Bold').fontSize(8).text(row.label.toUpperCase(), innerX, cursorY, {
@@ -186,23 +191,22 @@ function drawCard(
     doc
       .fillColor(COLORS.ink)
       .font(row.mono ? 'Courier' : 'Helvetica')
-      .fontSize(row.mono ? 8.5 : 10)
+      .fontSize(row.mono ? 8.25 : 9.5)
       .text(row.value, innerX, cursorY, {
         width: innerWidth,
         lineGap: row.mono ? 1.5 : 1,
       });
-    cursorY = doc.y + 10;
+    cursorY = doc.y + 8;
   }
 
-  return y + cardHeight + 14;
+  return y + cardHeight + 12;
 }
 
 function buildCardRows(receipt: Receipt): {
   paymentRows: CardRow[];
   participantRows: CardRow[];
-  deliveryRows: CardRow[];
   proofRows: CardRow[];
-  summaryRows: Array<{ label: string; value: string }>;
+  summaryRows: SummaryMetric[];
 } {
   const metadata = readMetadata(receipt.metadata);
   const amount = formatAmount(metadata);
@@ -231,7 +235,7 @@ function buildCardRows(receipt: Receipt): {
         mono: true,
       },
     ],
-    deliveryRows: [
+    proofRows: [
       {
         label: 'Delivery commitment',
         value: breakMonospace(receipt.delivery_commitment || 'Not captured', 24),
@@ -242,20 +246,42 @@ function buildCardRows(receipt: Receipt): {
         value: receipt.revision > 0 ? `Revision ${receipt.revision}` : 'Initial receipt',
       },
       { label: 'Receipt ID', value: breakMonospace(receipt.receipt_id, 22), mono: true },
-    ],
-    proofRows: [
       { label: 'Signature', value: breakMonospace(receipt.signature, 26), mono: true },
       { label: 'Key version', value: String(receipt.key_version) },
       { label: 'Verification URL', value: resolveReceiptUrl(receipt.receipt_id), mono: true },
     ],
     summaryRows: [
-      { label: 'Receipt', value: shortValue(receipt.receipt_id, 8, 8) },
-      { label: 'Network', value: network },
       { label: 'Amount', value: amount.display },
+      { label: 'Network', value: network },
       { label: 'Issued', value: timestamp.slice(0, 10) },
       { label: 'Seller', value: shortValue(receipt.seller_principal, 8, 6) },
+      { label: 'Buyer', value: shortValue(receipt.buyer_principal || 'N/A', 8, 6) },
     ],
   };
+}
+
+function drawMetric(
+  doc: PDFKit.PDFDocument,
+  x: number,
+  y: number,
+  width: number,
+  label: string,
+  value: string
+): void {
+  doc
+    .save()
+    .roundedRect(x, y, width, 56, 8)
+    .fillAndStroke(COLORS.paper, COLORS.border)
+    .restore();
+
+  doc.fillColor(COLORS.muted).font('Helvetica-Bold').fontSize(8).text(label.toUpperCase(), x + 12, y + 11, {
+    width: width - 24,
+    characterSpacing: 0.4,
+  });
+
+  doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(10).text(value, x + 12, y + 26, {
+    width: width - 24,
+  });
 }
 
 export async function generateReceiptPDF(receipt: Receipt): Promise<Buffer> {
@@ -276,18 +302,19 @@ export async function generateReceiptPDF(receipt: Receipt): Promise<Buffer> {
       width: 200,
     })
       .then((qrCodeDataURL: string) => {
-        const { paymentRows, participantRows, deliveryRows, proofRows, summaryRows } =
-          buildCardRows(receipt);
+        const { paymentRows, participantRows, proofRows, summaryRows } = buildCardRows(receipt);
 
         const qrImage = Buffer.from(qrCodeDataURL.split(',')[1], 'base64');
         const pageWidth = doc.page.width;
         const pageHeight = doc.page.height;
         const margin = 44;
         const contentWidth = pageWidth - margin * 2;
-        const sidebarWidth = 154;
-        const gutter = 20;
-        const leftWidth = contentWidth - sidebarWidth - gutter;
-        const sidebarX = margin + leftWidth + gutter;
+        const gutter = 16;
+        const qrSize = 88;
+        const rightColumnWidth = qrSize + 12;
+        const leftWidth = contentWidth - rightColumnWidth - gutter;
+        const cardWidth = (contentWidth - gutter) / 2;
+        const metricWidth = (contentWidth - gutter * (summaryRows.length - 1)) / summaryRows.length;
 
         doc.rect(0, 0, pageWidth, pageHeight).fill(COLORS.panel);
         doc
@@ -298,75 +325,73 @@ export async function generateReceiptPDF(receipt: Receipt): Promise<Buffer> {
           .rect(margin, margin, contentWidth, 8)
           .fill(COLORS.accent);
 
-        doc
-          .save()
-          .roundedRect(sidebarX, margin + 20, sidebarWidth, pageHeight - margin * 2 - 40, 10)
-          .fill(COLORS.panel)
-          .restore();
-
         doc.fillColor(COLORS.accent).font('Helvetica-Bold').fontSize(11).text('stxact', margin, margin + 18);
-        doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(25).text('Payment Receipt', margin, margin + 42);
+        doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(25).text('Payment Receipt', margin, margin + 40);
         doc.fillColor(COLORS.muted).font('Helvetica').fontSize(10).text(
           'Cryptographically signed proof of settlement and delivery for an x402-protected request.',
           margin,
-          margin + 76,
-          { width: leftWidth - 12, lineGap: 2 }
+          margin + 74,
+          { width: leftWidth, lineGap: 2 }
         );
 
-        doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(10).text('Receipt ID', margin, margin + 122);
+        doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(10).text('Receipt ID', margin, margin + 120);
         doc.fillColor(COLORS.ink).font('Courier').fontSize(9).text(
           breakMonospace(receipt.receipt_id, 24),
           margin,
-          margin + 138,
-          { width: leftWidth - 12, lineGap: 2 }
+          margin + 136,
+          { width: leftWidth, lineGap: 2 }
         );
 
-        doc.image(qrImage, sidebarX + 24, margin + 36, { width: 106 });
-        doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(10).text('Scan to inspect', sidebarX + 24, margin + 156, {
-          width: 106,
+        const qrX = margin + leftWidth + gutter;
+        doc
+          .save()
+          .roundedRect(qrX - 10, margin + 24, rightColumnWidth + 10, 144, 8)
+          .fill(COLORS.panel)
+          .restore();
+        doc.image(qrImage, qrX, margin + 34, { width: qrSize });
+        doc.fillColor(COLORS.ink).font('Helvetica-Bold').fontSize(10).text('Scan to inspect', qrX - 4, margin + 128, {
+          width: qrSize + 8,
           align: 'center',
         });
         doc.fillColor(COLORS.muted).font('Helvetica').fontSize(8).text(
-          'Use the receipt detail page to verify signatures, payment, and dispute state.',
-          sidebarX + 16,
-          margin + 172,
-          { width: sidebarWidth - 32, align: 'center', lineGap: 2 }
+          'Verify settlement, signature, and dispute state in the app.',
+          qrX - 4,
+          margin + 142,
+          { width: qrSize + 8, align: 'center', lineGap: 2 }
         );
 
-        let summaryY = margin + 236;
-        for (const row of summaryRows) {
-          doc.fillColor(COLORS.muted).font('Helvetica-Bold').fontSize(8).text(row.label.toUpperCase(), sidebarX + 16, summaryY, {
-            width: sidebarWidth - 32,
-          });
-          summaryY += 12;
-          doc.fillColor(COLORS.ink).font('Helvetica').fontSize(9).text(row.value, sidebarX + 16, summaryY, {
-            width: sidebarWidth - 32,
-          });
-          summaryY += 26;
-        }
+        const metricsY = margin + 198;
+        summaryRows.forEach((row, index) => {
+          drawMetric(doc, margin + index * (metricWidth + gutter), metricsY, metricWidth, row.label, row.value);
+        });
+
+        const cardsY = metricsY + 72;
+        const paymentHeight = measureCardHeight(doc, cardWidth, paymentRows);
+        const participantHeight = measureCardHeight(doc, cardWidth, participantRows);
+        const topRowHeight = Math.max(paymentHeight, participantHeight);
+
+        drawCard(doc, margin, cardsY, cardWidth, 'Payment settlement', paymentRows);
+        drawCard(doc, margin + cardWidth + gutter, cardsY, cardWidth, 'Participants and policy', participantRows);
+
+        const proofY = cardsY + topRowHeight + 12;
+        const proofBottom = drawCard(doc, margin, proofY, contentWidth, 'Proof bundle', proofRows);
 
         doc
           .save()
-          .roundedRect(sidebarX + 16, pageHeight - margin - 92, sidebarWidth - 32, 54, 8)
+          .roundedRect(margin, proofBottom + 2, contentWidth, 54, 8)
           .fill(COLORS.accentSoft)
           .restore();
-        doc.fillColor(COLORS.accent).font('Helvetica-Bold').fontSize(9).text('Proof layer', sidebarX + 28, pageHeight - margin - 76);
-        doc.fillColor(COLORS.ink).font('Helvetica').fontSize(8).text(
-          'Seller signature, settlement proof, and delivery commitment are bundled in this receipt.',
-          sidebarX + 28,
-          pageHeight - margin - 62,
-          { width: sidebarWidth - 56, lineGap: 2 }
+        doc.fillColor(COLORS.accent).font('Helvetica-Bold').fontSize(9).text('Verification note', margin + 16, proofBottom + 16);
+        doc.fillColor(COLORS.ink).font('Helvetica').fontSize(8.5).text(
+          'This receipt binds the payment transaction, request hash, delivery commitment, and seller signature into one portable proof object.',
+          margin + 16,
+          proofBottom + 29,
+          { width: contentWidth - 32, lineGap: 2 }
         );
-
-        let cursorY = margin + 188;
-        cursorY = drawCard(doc, margin, cursorY, leftWidth, 'Payment settlement', paymentRows);
-        cursorY = drawCard(doc, margin, cursorY, leftWidth, 'Participants and policy', participantRows);
-        cursorY = drawCard(doc, margin, cursorY, leftWidth, 'Delivery proof', deliveryRows);
-        cursorY = drawCard(doc, margin, cursorY, leftWidth, 'Cryptographic proof', proofRows);
 
         doc
           .moveTo(margin, pageHeight - margin - 24)
-          .lineTo(margin + leftWidth, pageHeight - margin - 24)
+          .lineTo(margin + contentWidth, pageHeight - margin - 24)
           .strokeColor(COLORS.border)
           .stroke();
 
@@ -374,7 +399,7 @@ export async function generateReceiptPDF(receipt: Receipt): Promise<Buffer> {
           'This receipt is a signed record of an x402-protected payment flow and can be verified against the underlying Stacks transaction.',
           margin,
           pageHeight - margin - 14,
-          { width: leftWidth, align: 'left' }
+          { width: contentWidth, align: 'left' }
         );
 
         doc.end();
