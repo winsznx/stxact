@@ -154,6 +154,9 @@ export function storeLatestBrowserFlow(receipt: Receipt, artifactText: string) {
   window.sessionStorage.setItem(LATEST_ARTIFACT_STORAGE_KEY, artifactText);
 }
 
+/**
+ * Executes logic associated with read latest browser flow.
+ */
 export function readLatestBrowserFlow() {
   if (typeof window === 'undefined') {
     return { receipt: null as Receipt | null, artifactText: null as string | null };
