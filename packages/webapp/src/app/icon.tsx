@@ -8,6 +8,9 @@ export const size = {
 
 export const contentType = 'image/png';
 
+/**
+ * Executes logic associated with icon.
+ */
 export default function Icon() {
   return new ImageResponse(
     (
