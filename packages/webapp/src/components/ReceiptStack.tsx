@@ -62,6 +62,9 @@ const receipts: Receipt[] = [
   },
 ];
 
+/**
+ * Executes logic associated with receipt stack.
+ */
 export function ReceiptStack() {
   const [activeIndex, setActiveIndex] = useState(0);
 
