@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 describe('Environment Validation', () => {
   it('should validate URL format', () => {
-    const validUrl = 'http://localhost:3001';
+    const validUrl = 'http://127.0.0.1:3001';
 
     expect(() => new URL(validUrl)).not.toThrow();
   });
