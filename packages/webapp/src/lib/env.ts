@@ -13,6 +13,9 @@ const envSchema = z.object({
   NEXT_PUBLIC_ANALYTICS_ID: z.string().optional(),
 });
 
+/**
+ * Core definition structure for Env.
+ */
 export type Env = z.infer<typeof envSchema>;
 
 let cachedEnv: Env | null = null;
