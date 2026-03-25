@@ -44,6 +44,9 @@ function isStacksAddressRecord(
   );
 }
 
+/**
+ * Executes logic associated with get connected stacks account.
+ */
 export async function getConnectedStacksAccount(
   expectedAddress?: string | null
 ): Promise<ConnectedStacksAccount> {
