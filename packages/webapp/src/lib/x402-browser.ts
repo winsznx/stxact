@@ -137,6 +137,9 @@ export function decodeReceiptHeader(headerValue: string | null): Receipt | null 
   return decodeBase64Json<Receipt>(headerValue);
 }
 
+/**
+ * Executes logic associated with format micro stx.
+ */
 export function formatMicroStx(amountMicroStx: string): string {
   const microStxUnit = BigInt(1_000_000);
   const microStx = BigInt(amountMicroStx);
