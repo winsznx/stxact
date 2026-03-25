@@ -44,3 +44,6 @@ coverage/
 # Misc
 *.tgz
 test-output-*
+
+# Migrated CLI repo
+stxactcli/
