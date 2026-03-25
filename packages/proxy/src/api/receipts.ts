@@ -128,7 +128,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Build dynamic query
     let query = 'SELECT * FROM receipts WHERE 1=1';
-    const params: any[] = [];
+    const params: (string | number)[] = [];
     let paramCount = 1;
 
     if (sellerPrincipal) {
@@ -153,7 +153,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Get total count for pagination
     let countQuery = 'SELECT COUNT(*) FROM receipts WHERE 1=1';
-    const countParams: any[] = [];
+    const countParams: (string | number)[] = [];
     let countParamNum = 1;
 
     if (sellerPrincipal) {
