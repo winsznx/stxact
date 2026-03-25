@@ -8,6 +8,9 @@ export const size = {
 
 export const contentType = 'image/png';
 
+/**
+ * Executes logic associated with apple icon.
+ */
 export default function AppleIcon() {
   return new ImageResponse(
     (
