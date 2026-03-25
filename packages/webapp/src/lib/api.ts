@@ -105,6 +105,9 @@ export interface RegisterServicePayload {
   timestamp: number;
 }
 
+/**
+ * Core definition structure for RefundAuthorizationPayload.
+ */
 export interface RefundAuthorizationPayload {
   dispute_id: string;
   receipt_id: string;
