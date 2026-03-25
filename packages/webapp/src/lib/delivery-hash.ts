@@ -28,6 +28,9 @@ async function sha256Hex(payload: Uint8Array): Promise<string> {
     .join('');
 }
 
+/**
+ * Executes logic associated with compute binary hash.
+ */
 export async function computeBinaryHash(payload: Uint8Array): Promise<string> {
   return sha256Hex(payload);
 }
