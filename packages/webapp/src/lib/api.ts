@@ -184,6 +184,9 @@ interface UpdateDisputeData {
   resolution_notes?: string;
 }
 
+/**
+ * Exported constant for api.
+ */
 export const api = {
   getReceipts: (params?: GetReceiptsParams) => {
     const query = new URLSearchParams();
