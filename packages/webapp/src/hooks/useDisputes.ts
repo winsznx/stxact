@@ -42,6 +42,9 @@ export function useCreateDispute() {
   });
 }
 
+/**
+ * Executes logic associated with use update dispute.
+ */
 export function useUpdateDispute() {
   const queryClient = useQueryClient();
 
