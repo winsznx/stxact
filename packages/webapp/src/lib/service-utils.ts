@@ -25,6 +25,9 @@ export function getServiceDeliveries(service: Service): number {
   return typeof service.total_deliveries === 'number' ? service.total_deliveries : 0;
 }
 
+/**
+ * Executes logic associated with get service disputes.
+ */
 export function getServiceDisputes(service: Service): number {
   return typeof service.total_disputes === 'number' ? service.total_disputes : 0;
 }
