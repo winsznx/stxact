@@ -16,6 +16,9 @@ export interface AppNavItem {
   icon: LucideIcon;
 }
 
+/**
+ * Core definition structure for NavItem.
+ */
 export interface NavItem {
   name: string;
   href: string;
