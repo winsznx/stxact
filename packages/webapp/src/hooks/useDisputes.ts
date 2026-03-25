@@ -15,6 +15,9 @@ export function useDisputes(params?: {
   });
 }
 
+/**
+ * Executes logic associated with use dispute.
+ */
 export function useDispute(id: string) {
   return useQuery({
     queryKey: ['dispute', id],
