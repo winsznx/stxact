@@ -1,3 +1,6 @@
+/**
+ * Executes logic associated with skeleton card.
+ */
 export function SkeletonCard() {
   return (
     <div className="animate-pulse rounded-none border border bg-background-raised p-6">
