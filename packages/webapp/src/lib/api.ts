@@ -24,6 +24,9 @@ export interface Token {
   network?: string;
 }
 
+/**
+ * Core definition structure for Service.
+ */
 export interface Service {
   service_id?: string;
   principal: string;
