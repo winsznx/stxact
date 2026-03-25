@@ -24,6 +24,9 @@ type VerificationSummary = {
   bns_verified?: boolean;
 };
 
+/**
+ * Executes logic associated with audit page.
+ */
 export default function AuditPage() {
   const chain = process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
   const { address: walletAddress } = useWallet();
