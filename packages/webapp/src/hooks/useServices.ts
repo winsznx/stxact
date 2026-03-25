@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
+/**
+ * Executes logic associated with use services.
+ */
 export function useServices(params?: {
   category?: string;
   token?: string;
