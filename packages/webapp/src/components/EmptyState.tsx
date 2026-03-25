@@ -8,6 +8,9 @@ interface EmptyStateProps {
   action?: ReactNode;
 }
 
+/**
+ * Executes logic associated with empty state.
+ */
 export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
   return (
     <div className="glass rounded-none py-16 text-center">
