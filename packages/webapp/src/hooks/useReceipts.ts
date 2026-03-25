@@ -14,6 +14,9 @@ export function useReceipts(params?: {
   });
 }
 
+/**
+ * Executes logic associated with use receipt.
+ */
 export function useReceipt(id: string) {
   return useQuery({
     queryKey: ['receipt', id],
