@@ -43,4 +43,7 @@ export function getEnv(): Env {
   }
 }
 
+/**
+ * Exported constant for env.
+ */
 export const env = getEnv();
