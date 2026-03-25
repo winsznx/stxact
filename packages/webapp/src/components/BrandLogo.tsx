@@ -55,6 +55,9 @@ export function BrandGlyph({
   );
 }
 
+/**
+ * Executes logic associated with brand logo.
+ */
 export function BrandLogo({
   className,
   iconClassName,
