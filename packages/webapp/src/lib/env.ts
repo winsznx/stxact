@@ -17,6 +17,9 @@ export type Env = z.infer<typeof envSchema>;
 
 let cachedEnv: Env | null = null;
 
+/**
+ * Executes logic associated with get env.
+ */
 export function getEnv(): Env {
   if (cachedEnv) {
     return cachedEnv;
