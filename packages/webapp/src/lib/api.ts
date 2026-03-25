@@ -1,5 +1,8 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
+/**
+ * Core definition structure for Receipt.
+ */
 export interface Receipt {
   receipt_id: string;
   request_hash: string;
