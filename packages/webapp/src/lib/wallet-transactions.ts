@@ -25,6 +25,9 @@ export function getTransactionExplorerUrl(txId: string): string {
   return `https://explorer.hiro.so/txid/${normalizeTxId(txId)}?chain=${chain}`;
 }
 
+/**
+ * Executes logic associated with normalize tx id.
+ */
 export function normalizeTxId(txId: string): string {
   return txId.startsWith('0x') ? txId : `0x${txId}`;
 }
