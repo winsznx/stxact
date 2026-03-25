@@ -6,6 +6,9 @@ export const size = {
   height: 512,
 };
 
+/**
+ * Exported constant for content type.
+ */
 export const contentType = 'image/png';
 
 /**
