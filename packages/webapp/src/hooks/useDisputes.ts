@@ -56,6 +56,9 @@ export function useUpdateDispute() {
   });
 }
 
+/**
+ * Executes logic associated with use submit refund authorization.
+ */
 export function useSubmitRefundAuthorization() {
   const queryClient = useQueryClient();
 
