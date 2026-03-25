@@ -25,6 +25,9 @@ const termsSections = [
   },
 ];
 
+/**
+ * Executes logic associated with terms page.
+ */
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-background">
