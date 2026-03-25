@@ -8,6 +8,9 @@ interface GlassCardProps {
   hover?: boolean;
 }
 
+/**
+ * Executes logic associated with glass card.
+ */
 export function GlassCard({ children, className, variant = 'default', hover = false }: GlassCardProps) {
   const variantClasses = {
     default: 'glass',
