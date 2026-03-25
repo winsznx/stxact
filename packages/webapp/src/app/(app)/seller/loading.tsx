@@ -1,5 +1,8 @@
 import { SkeletonStat, SkeletonCard } from '@/components/SkeletonCard';
 
+/**
+ * Executes logic associated with seller loading.
+ */
 export default function SellerLoading() {
   return (
     <div className="min-h-screen bg-background">
