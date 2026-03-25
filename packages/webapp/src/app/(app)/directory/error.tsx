@@ -3,6 +3,9 @@
 import { useEffect } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
+/**
+ * Executes logic associated with directory error.
+ */
 export default function DirectoryError({
   error,
   reset,
