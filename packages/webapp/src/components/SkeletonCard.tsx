@@ -30,6 +30,9 @@ export function SkeletonCard() {
   );
 }
 
+/**
+ * Executes logic associated with skeleton table.
+ */
 export function SkeletonTable() {
   return (
     <div className="animate-pulse space-y-3">
