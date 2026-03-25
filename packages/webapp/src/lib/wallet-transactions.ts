@@ -78,6 +78,9 @@ export async function getConnectedStacksAccount(
   };
 }
 
+/**
+ * Executes logic associated with sign x402 payment with wallet.
+ */
 export async function signX402PaymentWithWallet(options: {
   recipient: string;
   amountMicroStx: string;
