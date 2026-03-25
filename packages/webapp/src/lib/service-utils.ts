@@ -7,6 +7,9 @@ export function getServiceScore(service: Service): number {
   return service.reputation?.score || 0;
 }
 
+/**
+ * Executes logic associated with get service total volume.
+ */
 export function getServiceTotalVolume(service: Service): string {
   if (service.total_volume) {
     return service.total_volume;
