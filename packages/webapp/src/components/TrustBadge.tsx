@@ -47,6 +47,9 @@ export function TrustBadge({ level, className }: TrustBadgeProps) {
   );
 }
 
+/**
+ * Executes logic associated with trust badge with tooltip.
+ */
 export function TrustBadgeWithTooltip({ level, className }: TrustBadgeProps) {
   const config = badgeConfig[level];
   const Icon = config.icon;
