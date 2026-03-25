@@ -129,6 +129,9 @@ export function decodePaymentResponseHeader(headerValue: string | null): X402Pay
   return decodeBase64Json<X402PaymentResponse>(headerValue);
 }
 
+/**
+ * Executes logic associated with decode receipt header.
+ */
 export function decodeReceiptHeader(headerValue: string | null): Receipt | null {
   if (!headerValue) {
     return null;
