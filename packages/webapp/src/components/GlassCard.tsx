@@ -37,6 +37,9 @@ export function GlassPanel({ children, className }: { children: ReactNode; class
   );
 }
 
+/**
+ * Executes logic associated with glass table.
+ */
 export function GlassTable({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <div className={clsx('glass rounded-none overflow-hidden', className)}>
