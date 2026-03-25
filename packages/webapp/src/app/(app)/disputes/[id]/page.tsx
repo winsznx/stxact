@@ -10,6 +10,9 @@ import { useDispute, useSubmitRefundAuthorization, useUpdateDispute } from '@/ho
 import { useWallet } from '@/hooks/useWallet';
 import { signWithWallet } from '@/lib/signing';
 
+/**
+ * Executes logic associated with dispute detail page.
+ */
 export default function DisputeDetailPage() {
   const params = useParams();
   const disputeId = params.id as string;
