@@ -29,6 +29,9 @@ const statusConfig = {
   },
 };
 
+/**
+ * Executes logic associated with verification row.
+ */
 export function VerificationRow({ label, status, details, expandable = true }: VerificationRowProps) {
   const [expanded, setExpanded] = useState(false);
   const config = statusConfig[status];
