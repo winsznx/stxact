@@ -45,6 +45,9 @@ export function SkeletonTable() {
   );
 }
 
+/**
+ * Executes logic associated with skeleton stat.
+ */
 export function SkeletonStat() {
   return (
     <div className="animate-pulse rounded-none border border bg-background-raised p-6">
