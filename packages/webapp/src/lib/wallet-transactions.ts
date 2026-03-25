@@ -3,6 +3,9 @@ export interface ConnectedStacksAccount {
   publicKey: string;
 }
 
+/**
+ * Core definition structure for SignedPaymentTransaction.
+ */
 export interface SignedPaymentTransaction {
   signedTransaction: string;
   txId: string;
