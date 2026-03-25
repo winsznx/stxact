@@ -332,7 +332,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Build dynamic query
     let query = 'SELECT * FROM disputes WHERE 1=1';
-    const params: any[] = [];
+    const params: (string | number | boolean)[] = [];
     let paramCount = 1;
 
     if (sellerPrincipal) {
@@ -361,7 +361,7 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Get total count
     let countQuery = 'SELECT COUNT(*) FROM disputes WHERE 1=1';
-    const countParams: any[] = [];
+    const countParams: (string | number | boolean)[] = [];
     let countParamNum = 1;
 
     if (sellerPrincipal) {
