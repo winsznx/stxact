@@ -121,6 +121,9 @@ export function createBrowserPaymentSignature(payload: X402BrowserRetryPayload):
   return encodeBase64Json(payload);
 }
 
+/**
+ * Executes logic associated with decode payment response header.
+ */
 export function decodePaymentResponseHeader(headerValue: string | null): X402PaymentResponse | null {
   if (!headerValue) {
     return null;
