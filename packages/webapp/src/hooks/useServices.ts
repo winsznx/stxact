@@ -15,6 +15,9 @@ export function useServices(params?: {
   });
 }
 
+/**
+ * Executes logic associated with use service.
+ */
 export function useService(principal: string) {
   return useQuery({
     queryKey: ['service', principal],
