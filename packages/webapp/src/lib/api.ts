@@ -69,6 +69,9 @@ export interface Dispute {
   tx_hash?: string;
 }
 
+/**
+ * Core definition structure for Reputation.
+ */
 export interface Reputation {
   principal: string;
   score: number;
