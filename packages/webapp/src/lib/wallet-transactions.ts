@@ -1,3 +1,6 @@
+/**
+ * Core definition structure for ConnectedStacksAccount.
+ */
 export interface ConnectedStacksAccount {
   address: string;
   publicKey: string;
