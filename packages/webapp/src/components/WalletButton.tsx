@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { Wallet, LogOut, Copy, Check } from 'lucide-react';
 import { useWallet } from '@/hooks/useWallet';
 
+/**
+ * Executes logic associated with wallet button.
+ */
 export function WalletButton() {
   const { address, isConnected, isConnecting, connect, disconnect } = useWallet();
   const [showMenu, setShowMenu] = useState(false);
