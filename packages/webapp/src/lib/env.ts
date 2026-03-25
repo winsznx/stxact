@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const envSchema = z.object({
-  NEXT_PUBLIC_API_URL: z.string().url().default('http://localhost:3001'),
+  NEXT_PUBLIC_API_URL: z.string().url().default('http://127.0.0.1:3001'),
   NEXT_PUBLIC_STACKS_NETWORK: z.enum(['testnet', 'mainnet']).default('testnet'),
   NEXT_PUBLIC_STACKS_API_URL: z.string().url().default('https://api.testnet.hiro.so'),
   NEXT_PUBLIC_APP_NAME: z.string().default('stxact'),
