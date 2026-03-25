@@ -38,6 +38,9 @@ function highlightJson(code: string): string {
   );
 }
 
+/**
+ * Executes logic associated with code block.
+ */
 export function CodeBlock({ title, code, language = 'text', className }: CodeBlockProps) {
   const highlighted = language === 'json' ? highlightJson(code) : escapeHtml(code);
 
