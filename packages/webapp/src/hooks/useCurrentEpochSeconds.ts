@@ -15,6 +15,9 @@ function getServerSnapshot() {
   return 0;
 }
 
+/**
+ * Executes logic associated with use current epoch seconds.
+ */
 export function useCurrentEpochSeconds() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
