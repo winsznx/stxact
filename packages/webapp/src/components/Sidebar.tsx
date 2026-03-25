@@ -13,6 +13,9 @@ import { BrandLogo } from '@/components/BrandLogo';
 import { useWallet } from '@/hooks/useWallet';
 import { appNavigation } from '@/lib/navigation';
 
+/**
+ * Executes logic associated with sidebar.
+ */
 export function Sidebar() {
     const [isOpen, setIsOpen] = useState(true);
     const pathname = usePathname();
