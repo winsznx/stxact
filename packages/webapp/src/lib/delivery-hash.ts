@@ -37,6 +37,9 @@ export async function computeDeliverableHash(value: unknown): Promise<string> {
   return sha256Hex(new TextEncoder().encode(canonicalJson));
 }
 
+/**
+ * Executes logic associated with compute deliverable hash from text.
+ */
 export async function computeDeliverableHashFromText(input: string): Promise<string> {
   try {
     return await computeDeliverableHash(JSON.parse(input));
