@@ -9,6 +9,9 @@ export const metadata: Metadata = {
     },
 };
 
+/**
+ * Executes logic associated with marketing layout.
+ */
 export default function MarketingLayout({
     children,
 }: {
