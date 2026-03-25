@@ -33,6 +33,9 @@ const verificationChecks = [
   'Revision and delivery commitment status',
 ];
 
+/**
+ * Executes logic associated with docs page.
+ */
 export default function DocsPage() {
   return (
     <div className="min-h-screen bg-background">
