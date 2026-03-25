@@ -20,6 +20,9 @@ function getAppDetails() {
   };
 }
 
+/**
+ * Executes logic associated with get transaction explorer url.
+ */
 export function getTransactionExplorerUrl(txId: string): string {
   const chain = getStacksNetwork();
   return `https://explorer.hiro.so/txid/${normalizeTxId(txId)}?chain=${chain}`;
