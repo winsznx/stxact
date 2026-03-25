@@ -10,6 +10,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
+/**
+ * Core definition structure for AppNavItem.
+ */
 export interface AppNavItem {
   name: string;
   href: string;
