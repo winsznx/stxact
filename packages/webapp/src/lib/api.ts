@@ -51,6 +51,9 @@ export interface Service {
   };
 }
 
+/**
+ * Core definition structure for Dispute.
+ */
 export interface Dispute {
   dispute_id: string;
   receipt_id: string;
