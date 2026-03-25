@@ -1,3 +1,6 @@
+/**
+ * Executes logic associated with sign with wallet.
+ */
 export async function signWithWallet(message: string): Promise<string> {
   const { openSignatureRequestPopup } = await import('@stacks/connect');
 
