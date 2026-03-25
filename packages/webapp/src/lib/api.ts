@@ -78,6 +78,9 @@ export interface Reputation {
   on_chain: boolean;
 }
 
+/**
+ * Core definition structure for Pagination.
+ */
 export interface Pagination {
   total: number;
   limit: number;
