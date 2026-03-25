@@ -103,7 +103,7 @@ export default function ReceiptsPage() {
               </Link>
               <button
                 onClick={() => {
-                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+                  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
                   const params = new URLSearchParams();
                   if (filter === 'seller' && walletAddress) params.set('seller_principal', walletAddress);
                   if (filter === 'buyer' && walletAddress) params.set('buyer_principal', walletAddress);
