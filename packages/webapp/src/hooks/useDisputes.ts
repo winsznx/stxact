@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
+/**
+ * Executes logic associated with use disputes.
+ */
 export function useDisputes(params?: {
   seller_principal?: string;
   buyer_principal?: string;
