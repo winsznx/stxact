@@ -16,6 +16,9 @@ interface DataTableProps<T> {
   className?: string;
 }
 
+/**
+ * Executes logic associated with data table.
+ */
 export function DataTable<T>({ columns, data, keyExtractor, emptyMessage, className }: DataTableProps<T>) {
   if (data.length === 0) {
     return (
