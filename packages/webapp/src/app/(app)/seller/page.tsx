@@ -9,6 +9,9 @@ import { useDisputes } from '@/hooks/useDisputes';
 import { GlassPanel } from '@/components/GlassCard';
 import { MetricTile } from '@/components/MetricTile';
 
+/**
+ * Executes logic associated with seller dashboard page.
+ */
 export default function SellerDashboardPage() {
   const { address: walletAddress } = useWallet();
   const { data: service, isLoading: serviceLoading, error: serviceError } = useService(walletAddress || '');
