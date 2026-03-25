@@ -1,5 +1,8 @@
 import { SkeletonTable, SkeletonStat } from '@/components/SkeletonCard';
 
+/**
+ * Executes logic associated with receipts loading.
+ */
 export default function ReceiptsLoading() {
   return (
     <div className="min-h-screen bg-background">
