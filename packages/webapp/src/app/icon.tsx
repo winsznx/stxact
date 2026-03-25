@@ -1,6 +1,9 @@
 import { ImageResponse } from 'next/og';
 import { BrandGlyph } from '@/components/BrandLogo';
 
+/**
+ * Exported constant for size.
+ */
 export const size = {
   width: 512,
   height: 512,
