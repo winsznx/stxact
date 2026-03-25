@@ -13,6 +13,9 @@ interface MetricTileProps {
   className?: string;
 }
 
+/**
+ * Executes logic associated with metric tile.
+ */
 export function MetricTile({ label, value, change, icon: Icon, trend, className }: MetricTileProps) {
   return (
     <div className={clsx('glass rounded-none p-4', className)}>
