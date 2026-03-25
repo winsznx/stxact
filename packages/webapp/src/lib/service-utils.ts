@@ -21,6 +21,9 @@ export function getServiceStakeStx(service: Service): string {
   return '0';
 }
 
+/**
+ * Executes logic associated with get service deliveries.
+ */
 export function getServiceDeliveries(service: Service): number {
   return typeof service.total_deliveries === 'number' ? service.total_deliveries : 0;
 }
