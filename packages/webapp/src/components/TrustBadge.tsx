@@ -29,6 +29,9 @@ const badgeConfig = {
   },
 };
 
+/**
+ * Executes logic associated with trust badge.
+ */
 export function TrustBadge({ level, className }: TrustBadgeProps) {
   const config = badgeConfig[level];
   const Icon = config.icon;
