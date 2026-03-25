@@ -92,6 +92,9 @@ export interface VerificationChecks {
   bns_verified?: boolean;
 }
 
+/**
+ * Core definition structure for RegisterServicePayload.
+ */
 export interface RegisterServicePayload {
   endpoint_url: string;
   policy_hash: string;
