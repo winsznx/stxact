@@ -85,6 +85,9 @@ export interface Pagination {
   has_more?: boolean;
 }
 
+/**
+ * Core definition structure for VerificationChecks.
+ */
 export interface VerificationChecks {
   signature_valid: boolean;
   principal_match?: boolean;
