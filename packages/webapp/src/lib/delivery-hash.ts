@@ -32,6 +32,9 @@ export async function computeBinaryHash(payload: Uint8Array): Promise<string> {
   return sha256Hex(payload);
 }
 
+/**
+ * Executes logic associated with compute deliverable hash.
+ */
 export async function computeDeliverableHash(value: unknown): Promise<string> {
   const canonicalJson = JSON.stringify(canonicalize(value));
   return sha256Hex(new TextEncoder().encode(canonicalJson));
