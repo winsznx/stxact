@@ -4,6 +4,9 @@ import { useEffect } from 'react';
 import { AlertTriangle, ArrowLeft, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 
+/**
+ * Executes logic associated with error.
+ */
 export default function Error({
   error,
   reset,
