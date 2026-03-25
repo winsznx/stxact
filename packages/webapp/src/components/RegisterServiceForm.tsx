@@ -36,6 +36,9 @@ function normalizeTokens(input: string): Token[] {
   return values.map((symbol) => ({ symbol }));
 }
 
+/**
+ * Executes logic associated with register service form.
+ */
 export function RegisterServiceForm() {
   const { address, isConnected } = useWallet();
 
