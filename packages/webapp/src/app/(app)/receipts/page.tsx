@@ -7,6 +7,9 @@ import Link from 'next/link';
 import { useWallet } from '@/hooks/useWallet';
 import type { Receipt } from '@/lib/api';
 
+/**
+ * Executes logic associated with receipts page.
+ */
 export default function ReceiptsPage() {
   const { address: walletAddress } = useWallet();
   const [filter, setFilter] = useState<'all' | 'seller' | 'buyer'>('all');
