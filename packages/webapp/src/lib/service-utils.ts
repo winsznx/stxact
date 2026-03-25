@@ -1,5 +1,8 @@
 import type { Service } from '@/lib/api';
 
+/**
+ * Executes logic associated with get service score.
+ */
 export function getServiceScore(service: Service): number {
   if (typeof service.reputation_score === 'number') {
     return service.reputation_score;
