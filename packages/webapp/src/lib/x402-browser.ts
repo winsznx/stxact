@@ -145,6 +145,9 @@ export function formatMicroStx(amountMicroStx: string): string {
   return fraction ? `${whole.toString()}.${fraction} STX` : `${whole.toString()} STX`;
 }
 
+/**
+ * Executes logic associated with store latest browser flow.
+ */
 export function storeLatestBrowserFlow(receipt: Receipt, artifactText: string) {
   if (typeof window === 'undefined') {
     return;
