@@ -18,6 +18,9 @@ export interface Receipt {
   signature: string;
 }
 
+/**
+ * Core definition structure for Token.
+ */
 export interface Token {
   symbol: string;
   token_contract?: string;
