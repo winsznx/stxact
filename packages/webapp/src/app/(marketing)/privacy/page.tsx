@@ -20,6 +20,9 @@ const dataPoints = [
   },
 ];
 
+/**
+ * Executes logic associated with privacy page.
+ */
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-background">
