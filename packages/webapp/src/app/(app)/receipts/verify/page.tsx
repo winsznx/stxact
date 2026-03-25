@@ -8,6 +8,9 @@ import { GlassPanel } from '@/components/GlassCard';
 import { computeBinaryHash, computeDeliverableHashFromText } from '@/lib/delivery-hash';
 import { readLatestBrowserFlow } from '@/lib/x402-browser';
 
+/**
+ * Executes logic associated with verify receipt page.
+ */
 export default function VerifyReceiptPage() {
   const [input, setInput] = useState('');
   const [verifyOnChain, setVerifyOnChain] = useState(true);
