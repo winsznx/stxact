@@ -6,6 +6,9 @@ import { BrandLogo } from '@/components/BrandLogo';
 import { ReceiptStack } from '@/components/ReceiptStack';
 import { footerLegalLinks, footerResourceLinks } from '@/lib/navigation';
 
+/**
+ * Executes logic associated with home page.
+ */
 export default function HomePage() {
   return (
     <div className="min-h-screen">
