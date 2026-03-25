@@ -14,6 +14,9 @@ export function getServiceTotalVolume(service: Service): string {
   return service.reputation?.total_volume || '0';
 }
 
+/**
+ * Executes logic associated with get service stake stx.
+ */
 export function getServiceStakeStx(service: Service): string {
   if (service.stake?.amount_stx) {
     return service.stake.amount_stx;
