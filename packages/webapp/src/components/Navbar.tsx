@@ -24,6 +24,9 @@ interface NavbarProps {
   showBrand?: boolean;
 }
 
+/**
+ * Executes logic associated with navbar.
+ */
 export function Navbar({
   links = [],
   showDesktopLinks = true,
