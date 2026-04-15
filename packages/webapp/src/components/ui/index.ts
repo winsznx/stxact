@@ -12,3 +12,6 @@ export { VerificationRow } from '../VerificationRow';
 export { PageHeader } from '../PageHeader';
 export { Badge } from '../Badge';
 export { Tooltip } from '../Tooltip';
+export { ExternalLink } from '../ExternalLink';
+export { AddressDisplay } from '../AddressDisplay';
+export { ErrorBoundaryFallback } from '../ErrorBoundaryFallback';
