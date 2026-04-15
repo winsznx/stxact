@@ -1,4 +1,4 @@
-import { clsx } from 'clsx';
+import { cn } from '@/lib/cn';
 import { LucideIcon } from 'lucide-react';
 
 interface MetricTileProps {
@@ -13,12 +13,9 @@ interface MetricTileProps {
   className?: string;
 }
 
-/**
- * Executes logic associated with metric tile.
- */
 export function MetricTile({ label, value, change, icon: Icon, trend, className }: MetricTileProps) {
   return (
-    <div className={clsx('glass rounded-none p-4', className)}>
+    <div className={cn('glass rounded-none p-4', className)}>
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <p className="text-xs font-medium text-foreground-muted">{label}</p>
@@ -27,7 +24,7 @@ export function MetricTile({ label, value, change, icon: Icon, trend, className 
           {change && (
             <p className="mt-1 text-xs text-foreground-subtle">
               <span
-                className={clsx(
+                className={cn(
                   'font-medium',
                   trend === 'up' && 'text-success',
                   trend === 'down' && 'text-error',
