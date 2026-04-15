@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { clsx } from 'clsx';
+import { cn } from '@/lib/cn';
 
 interface GlassCardProps {
   children: ReactNode;
@@ -8,19 +8,16 @@ interface GlassCardProps {
   hover?: boolean;
 }
 
-/**
- * Executes logic associated with glass card.
- */
-export function GlassCard({ children, className, variant = 'default', hover = false }: GlassCardProps) {
-  const variantClasses = {
-    default: 'glass',
-    strong: 'glass-strong',
-    subtle: 'glass-subtle',
-  };
+const variantClasses = {
+  default: 'glass',
+  strong: 'glass-strong',
+  subtle: 'glass-subtle',
+} as const;
 
+export function GlassCard({ children, className, variant = 'default', hover = false }: GlassCardProps) {
   return (
     <div
-      className={clsx(
+      className={cn(
         'rounded-none',
         variantClasses[variant],
         hover && 'transition-all duration-200 hover:glass-elevate',
@@ -32,23 +29,17 @@ export function GlassCard({ children, className, variant = 'default', hover = fa
   );
 }
 
-/**
- * Executes logic associated with glass panel.
- */
 export function GlassPanel({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={clsx('glass-strong min-w-0 rounded-none p-6', className)}>
+    <div className={cn('glass-strong min-w-0 rounded-none p-6', className)}>
       {children}
     </div>
   );
 }
 
-/**
- * Executes logic associated with glass table.
- */
 export function GlassTable({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={clsx('glass rounded-none overflow-hidden', className)}>
+    <div className={cn('glass rounded-none overflow-hidden', className)}>
       <div className="overflow-x-auto">
         {children}
       </div>
