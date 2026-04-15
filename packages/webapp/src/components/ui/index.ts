@@ -7,3 +7,5 @@ export { Divider } from '../Divider';
 export { StatusDot } from '../StatusDot';
 export { CopyButton } from '../CopyButton';
 export { Kbd } from '../Kbd';
+export { DataTable } from '../DataTable';
+export { VerificationRow } from '../VerificationRow';
