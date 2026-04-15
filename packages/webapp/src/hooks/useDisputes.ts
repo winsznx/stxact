@@ -1,9 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { QUERY_STALE_TIMES } from '@/lib/constants';
 
-/**
- * Executes logic associated with use disputes.
- */
 export function useDisputes(params?: {
   seller_principal?: string;
   buyer_principal?: string;
@@ -14,13 +12,10 @@ export function useDisputes(params?: {
   return useQuery({
     queryKey: ['disputes', params],
     queryFn: () => api.getDisputes(params),
-    staleTime: 30 * 1000, // 30 seconds
+    staleTime: QUERY_STALE_TIMES.disputes,
   });
 }
 
-/**
- * Executes logic associated with use dispute.
- */
 export function useDispute(id: string) {
   return useQuery({
     queryKey: ['dispute', id],
@@ -29,9 +24,6 @@ export function useDispute(id: string) {
   });
 }
 
-/**
- * Executes logic associated with use create dispute.
- */
 export function useCreateDispute() {
   const queryClient = useQueryClient();
 
@@ -42,18 +34,13 @@ export function useCreateDispute() {
       evidence?: Record<string, unknown>;
       buyer_signature?: string;
       timestamp?: number;
-    }) =>
-      api.createDispute(data),
+    }) => api.createDispute(data),
     onSuccess: () => {
-      // Invalidate disputes list to refetch
       queryClient.invalidateQueries({ queryKey: ['disputes'] });
     },
   });
 }
 
-/**
- * Executes logic associated with use update dispute.
- */
 export function useUpdateDispute() {
   const queryClient = useQueryClient();
 
@@ -61,16 +48,12 @@ export function useUpdateDispute() {
     mutationFn: ({ id, data }: { id: string; data: { status: string; resolution_notes?: string } }) =>
       api.updateDispute(id, data),
     onSuccess: (_, variables) => {
-      // Invalidate both the specific dispute and the list
       queryClient.invalidateQueries({ queryKey: ['dispute', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['disputes'] });
     },
   });
 }
 
-/**
- * Executes logic associated with use submit refund authorization.
- */
 export function useSubmitRefundAuthorization() {
   const queryClient = useQueryClient();
 
