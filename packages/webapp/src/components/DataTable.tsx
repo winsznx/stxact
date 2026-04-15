@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { clsx } from 'clsx';
+import { cn } from '@/lib/cn';
 
 interface Column<T> {
   key: string;
@@ -16,13 +16,10 @@ interface DataTableProps<T> {
   className?: string;
 }
 
-/**
- * Executes logic associated with data table.
- */
 export function DataTable<T>({ columns, data, keyExtractor, emptyMessage, className }: DataTableProps<T>) {
   if (data.length === 0) {
     return (
-      <div className={clsx('glass rounded-none p-12 text-center', className)}>
+      <div className={cn('glass rounded-none p-12 text-center', className)}>
         <p className="text-sm text-foreground-muted">
           {emptyMessage || 'No data available'}
         </p>
@@ -31,7 +28,7 @@ export function DataTable<T>({ columns, data, keyExtractor, emptyMessage, classN
   }
 
   return (
-    <div className={clsx('glass overflow-hidden rounded-none', className)}>
+    <div className={cn('glass overflow-hidden rounded-none', className)}>
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead>
@@ -39,7 +36,7 @@ export function DataTable<T>({ columns, data, keyExtractor, emptyMessage, classN
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={clsx(
+                  className={cn(
                     'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-foreground-muted',
                     column.className
                   )}
