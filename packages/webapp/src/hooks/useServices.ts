@@ -1,9 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { QUERY_STALE_TIMES } from '@/lib/constants';
 
-/**
- * Executes logic associated with use services.
- */
 export function useServices(params?: {
   category?: string;
   token?: string;
@@ -14,13 +12,10 @@ export function useServices(params?: {
   return useQuery({
     queryKey: ['services', params],
     queryFn: () => api.getServices(params),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: QUERY_STALE_TIMES.services,
   });
 }
 
-/**
- * Executes logic associated with use service.
- */
 export function useService(principal: string) {
   return useQuery({
     queryKey: ['service', principal],
