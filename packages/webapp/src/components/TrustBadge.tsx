@@ -1,5 +1,5 @@
 import { Shield, Database, AlertTriangle } from 'lucide-react';
-import { clsx } from 'clsx';
+import { cn } from '@/lib/cn';
 
 type TrustLevel = 'anchored' | 'database' | 'risk';
 
@@ -27,18 +27,15 @@ const badgeConfig = {
     icon: AlertTriangle,
     classes: 'border-error bg-error/10 text-error',
   },
-};
+} as const;
 
-/**
- * Executes logic associated with trust badge.
- */
 export function TrustBadge({ level, className }: TrustBadgeProps) {
   const config = badgeConfig[level];
   const Icon = config.icon;
 
   return (
     <div
-      className={clsx(
+      className={cn(
         'inline-flex items-center gap-1.5 rounded-none border px-2 py-1 text-xs font-semibold',
         config.classes,
         className
@@ -50,9 +47,6 @@ export function TrustBadge({ level, className }: TrustBadgeProps) {
   );
 }
 
-/**
- * Executes logic associated with trust badge with tooltip.
- */
 export function TrustBadgeWithTooltip({ level, className }: TrustBadgeProps) {
   const config = badgeConfig[level];
   const Icon = config.icon;
@@ -60,7 +54,7 @@ export function TrustBadgeWithTooltip({ level, className }: TrustBadgeProps) {
   return (
     <div className="group relative inline-block">
       <div
-        className={clsx(
+        className={cn(
           'inline-flex items-center gap-1.5 rounded-none border px-2 py-1 text-xs font-semibold',
           config.classes,
           className
