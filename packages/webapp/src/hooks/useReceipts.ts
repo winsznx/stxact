@@ -1,9 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
+import { QUERY_STALE_TIMES } from '@/lib/constants';
 
-/**
- * Executes logic associated with use receipts.
- */
 export function useReceipts(params?: {
   seller_principal?: string;
   buyer_principal?: string;
@@ -13,13 +11,10 @@ export function useReceipts(params?: {
   return useQuery({
     queryKey: ['receipts', params],
     queryFn: () => api.getReceipts(params),
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: QUERY_STALE_TIMES.receipts,
   });
 }
 
-/**
- * Executes logic associated with use receipt.
- */
 export function useReceipt(id: string) {
   return useQuery({
     queryKey: ['receipt', id],
