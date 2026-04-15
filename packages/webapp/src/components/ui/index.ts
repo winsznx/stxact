@@ -9,3 +9,6 @@ export { CopyButton } from '../CopyButton';
 export { Kbd } from '../Kbd';
 export { DataTable } from '../DataTable';
 export { VerificationRow } from '../VerificationRow';
+export { PageHeader } from '../PageHeader';
+export { Badge } from '../Badge';
+export { Tooltip } from '../Tooltip';
