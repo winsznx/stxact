@@ -1,19 +1,18 @@
 import { LucideIcon } from 'lucide-react';
 import { ReactNode } from 'react';
+import { cn } from '@/lib/cn';
 
 interface EmptyStateProps {
   icon: LucideIcon;
   title: string;
   description: string;
   action?: ReactNode;
+  className?: string;
 }
 
-/**
- * Executes logic associated with empty state.
- */
-export function EmptyState({ icon: Icon, title, description, action }: EmptyStateProps) {
+export function EmptyState({ icon: Icon, title, description, action, className }: EmptyStateProps) {
   return (
-    <div className="glass rounded-none py-16 text-center">
+    <div className={cn('glass rounded-none py-16 text-center', className)}>
       <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border bg-background">
         <Icon className="h-8 w-8 text-foreground-muted" />
       </div>
