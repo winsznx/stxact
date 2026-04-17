@@ -1,7 +1,11 @@
 export { cn } from './cn';
 export { getEnv, env } from './env';
-export { formatMicroStx, truncateAddress, formatTimestamp, formatRelativeTime } from './format';
-export { QUERY_STALE_TIMES, DISPUTE_STATUSES, PAGINATION_DEFAULTS, STACKS_EXPLORER_BASE } from './constants';
+export { formatMicroStx, truncateAddress, formatTimestamp, formatRelativeTime, formatNumber, formatPercentage } from './format';
+export { QUERY_STALE_TIMES, DISPUTE_STATUSES, PAGINATION_DEFAULTS, STACKS_EXPLORER_BASE, STACKS_ADDRESS_REGEX, SERVICE_CATEGORIES } from './constants';
+export type { DisputeStatus, ServiceCategory } from './constants';
 export { queryKeys } from './query-keys';
-export { getTransactionUrl, getAddressUrl, isValidStacksAddress } from './stacks';
+export { getTransactionUrl, getAddressUrl, isValidStacksAddress, getContractId } from './stacks';
 export { isApiError, getErrorMessage, isNotFoundError, isUnauthorizedError } from './api-error';
+export { getDisputeStatusVariant, getDisputeStatusLabel } from './dispute-utils';
+export { isReceiptAnchored, getReceiptAge, isReceiptRecent } from './receipt-utils';
+export { getServiceScore, getServiceTotalVolume, getServiceStakeStx, getServiceDeliveries, getServiceDisputes } from './service-utils';
