@@ -1,23 +1,14 @@
 'use client';
 
 import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
+import { useHydrated } from '@/hooks/useHydrated';
 
-/**
- * Executes logic associated with theme toggle.
- */
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const hydrated = useHydrated();
 
-  useEffect(() => {
-    // Intentional: Prevents SSR hydration mismatch with theme toggle
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
+  if (!hydrated) {
     return (
       <div className="h-9 w-9 rounded-none border border bg-background-raised" />
     );
