@@ -1,0 +1,1 @@
+export { verifyBNSOwnership } from './bns';
