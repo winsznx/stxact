@@ -1,4 +1,4 @@
-import { STACKS_EXPLORER_BASE } from '@/lib/constants';
+import { STACKS_EXPLORER_BASE, STACKS_ADDRESS_REGEX } from '@/lib/constants';
 
 export function getTransactionUrl(txId: string, network: 'testnet' | 'mainnet' = 'testnet'): string {
   const normalizedId = txId.startsWith('0x') ? txId : `0x${txId}`;
@@ -12,5 +12,9 @@ export function getAddressUrl(principal: string, network: 'testnet' | 'mainnet' 
 }
 
 export function isValidStacksAddress(address: string): boolean {
-  return /^S[PM][A-Z0-9]{38,39}$/.test(address);
+  return STACKS_ADDRESS_REGEX.test(address);
+}
+
+export function getContractId(address: string, contractName: string): string {
+  return `${address}.${contractName}`;
 }
