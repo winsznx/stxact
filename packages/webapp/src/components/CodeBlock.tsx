@@ -1,4 +1,4 @@
-import { clsx } from 'clsx';
+import { cn } from '@/lib/cn';
 
 interface CodeBlockProps {
   title?: string;
@@ -38,14 +38,11 @@ function highlightJson(code: string): string {
   );
 }
 
-/**
- * Executes logic associated with code block.
- */
 export function CodeBlock({ title, code, language = 'text', className }: CodeBlockProps) {
   const highlighted = language === 'json' ? highlightJson(code) : escapeHtml(code);
 
   return (
-    <div className={clsx('overflow-hidden rounded-none border border bg-background', className)}>
+    <div className={cn('overflow-hidden rounded-none border border bg-background', className)}>
       {(title || language) && (
         <div className="flex items-center justify-between border-b border px-3 py-2">
           <span className="text-xs font-medium text-foreground-muted">{title || 'Code'}</span>
