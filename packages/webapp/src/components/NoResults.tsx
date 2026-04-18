@@ -12,7 +12,7 @@ export function NoResults({ query, message, className }: NoResultsProps) {
     <div className={cn('py-12 text-center', className)}>
       <Search className="mx-auto mb-3 h-8 w-8 text-foreground-subtle" />
       <p className="text-sm text-foreground-muted">
-        {message || (query ? \`No results for "\${query}"\` : 'No results found')}
+        {message || (query ? `No results for "${query}"` : 'No results found')}
       </p>
     </div>
   );
