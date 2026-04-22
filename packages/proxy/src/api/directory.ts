@@ -52,7 +52,7 @@ router.get('/services', async (req: Request, res: Response) => {
       ) dispute_stats ON dispute_stats.seller_principal = s.principal
       WHERE s.active = true
     `;
-    const values: any[] = [];
+    const values: (string | number | boolean)[] = [];
     let paramIndex = 1;
 
     // Apply filters
@@ -84,7 +84,7 @@ router.get('/services', async (req: Request, res: Response) => {
     if (minReputation <= 0) {
       // Get total count for pagination
       let countQuery = 'SELECT COUNT(*) FROM services WHERE active = true';
-      const countValues: any[] = [];
+      const countValues: (string | number | boolean)[] = [];
       let countParamIndex = 1;
 
       if (category) {
@@ -478,9 +478,9 @@ router.post('/register', async (req: Request, res: Response) => {
     const senderAddress = process.env.SERVICE_PRINCIPAL!;
 
     // Initialize nonce manager if first use
-    if (!(nonceManager as any)._initialized) {
+    if (!(nonceManager as unknown as { _initialized: boolean })._initialized) {
       await nonceManager.initialize(network);
-      (nonceManager as any)._initialized = true;
+      (nonceManager as unknown as { _initialized: boolean })._initialized = true;
     }
 
     const nonce = await nonceManager.allocateNonce(senderAddress);
@@ -505,7 +505,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
     // Type annotation required: broadcastTransaction return type causes narrowing issues with TypeScript
     // @stacks/transactions doesn't export a proper type for the response, using any with explicit check below
-    const broadcastResponse: any = await broadcastTransaction(registrationTx, network);
+    const broadcastResponse: Record<string, unknown> = await broadcastTransaction(registrationTx, network) as Record<string, unknown>;
 
     if (broadcastResponse.error) {
       // Mark nonce as failed for retry
