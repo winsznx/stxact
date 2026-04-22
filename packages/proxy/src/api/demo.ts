@@ -42,8 +42,12 @@ router.get(
   generateReceiptMiddleware, // Generate cryptographic receipt
   async (req: Request, res: Response) => {
     try {
-      const verifiedPayment = (req as any).verifiedPayment;
-      const requestHash = (req as any).requestHash;
+      const reqWithExt = req as Request & {
+        verifiedPayment: { payment_txid: string; amount: number; payer: string };
+        requestHash: string;
+      };
+      const verifiedPayment = reqWithExt.verifiedPayment;
+      const requestHash = reqWithExt.requestHash;
 
       logger.info('Serving premium data', {
         payment_txid: verifiedPayment.payment_txid,
