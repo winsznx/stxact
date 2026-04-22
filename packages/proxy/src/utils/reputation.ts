@@ -60,10 +60,13 @@ export async function getOnChainReputation(principal: string): Promise<Reputatio
       return null;
     }
 
-    const reputationData = cvToJSON(result.value.value).value as any;
+    const reputationData = cvToJSON(result.value.value).value as Record<string, unknown>;
 
-    const scoreRaw = reputationData['score']?.value ?? reputationData['score'] ?? '0';
-    const lastUpdatedRaw = reputationData['last-updated']?.value ?? reputationData['last-updated'] ?? '0';
+    const scoreData = reputationData['score'] as { value?: string } | string | undefined;
+    const scoreRaw = (typeof scoreData === 'object' ? scoreData?.value : scoreData) ?? '0';
+    
+    const lastUpdatedData = reputationData['last-updated'] as { value?: string } | string | undefined;
+    const lastUpdatedRaw = (typeof lastUpdatedData === 'object' ? lastUpdatedData?.value : lastUpdatedData) ?? '0';
 
     return {
       score: parseInt(String(scoreRaw), 10),
