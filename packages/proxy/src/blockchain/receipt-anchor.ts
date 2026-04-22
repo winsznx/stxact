@@ -137,9 +137,9 @@ class ReceiptAnchorManager {
       let failureCount = 0;
 
       // Initialize nonce manager if needed
-      if (!(nonceManager as any)._initialized) {
+      if (!(nonceManager as unknown as { _initialized: boolean })._initialized) {
         await nonceManager.initialize(network);
-        (nonceManager as any)._initialized = true;
+        (nonceManager as unknown as { _initialized: boolean })._initialized = true;
       }
 
       for (const record of records) {
@@ -177,7 +177,7 @@ class ReceiptAnchorManager {
 
           // Type annotation required: broadcastTransaction return type causes narrowing issues with TypeScript
           // @stacks/transactions doesn't export a proper type for the response, using any with explicit check below
-          const broadcastResponse: any = await broadcastTransaction(anchorTx, network);
+          const broadcastResponse: Record<string, unknown> = await broadcastTransaction(anchorTx, network) as Record<string, unknown>;
 
           if (broadcastResponse.error) {
             await nonceManager.markFailed(senderAddress, nonce);
