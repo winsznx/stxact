@@ -112,7 +112,7 @@ export async function resolveBNSOwner(bnsName: string): Promise<string | null> {
     });
 
     if (result.type === ClarityType.ResponseOk) {
-      const data = result.value as any;
+      const data = result.value as { data?: { owner?: { address?: string } } };
       const owner = data.data?.owner?.address || null;
 
       logger.info('BNS name resolved', {
