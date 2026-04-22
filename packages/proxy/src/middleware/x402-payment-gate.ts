@@ -116,9 +116,10 @@ export function createX402PaymentGate(config: X402PaymentGateConfig) {
           }
 
           paymentTxid = payment.transaction;
-          const rawAmount = (payment as any).amount;
+          const paymentExt = payment as Record<string, unknown>;
+          const rawAmount = paymentExt.amount;
           resolvedAmount = rawAmount !== undefined ? String(rawAmount) : amountMicroSTX;
-          payerPrincipal = payment.payer || (payment as any).from || (payment as any).sender || null;
+          payerPrincipal = payment.payer || (paymentExt.from as string) || (paymentExt.sender as string) || null;
           paymentNetwork = payment.network || networkCAIP2;
           paymentMetadata = await fetchConfirmedTxMetadata(paymentTxid);
         } catch (x402Error) {
@@ -186,7 +187,12 @@ export function createX402PaymentGate(config: X402PaymentGateConfig) {
       await verifyPaymentBinding(paymentTxid, requestHash);
 
       // Store verified payment data for downstream middleware
-      (req as any).verifiedPayment = {
+      const reqWithExt = req as Request & {
+        verifiedPayment?: unknown;
+        requestHash?: string;
+        idempotencyKey?: string;
+      };
+      reqWithExt.verifiedPayment = {
         payment_txid: paymentTxid,
         amount: resolvedAmount,
         payer: payerPrincipal,
@@ -194,8 +200,8 @@ export function createX402PaymentGate(config: X402PaymentGateConfig) {
         block_height: paymentMetadata.blockHeight,
         block_hash: paymentMetadata.blockHash,
       };
-      (req as any).requestHash = requestHash;
-      (req as any).idempotencyKey = idempotencyKey;
+      reqWithExt.requestHash = requestHash;
+      reqWithExt.idempotencyKey = idempotencyKey;
 
       logger.info('Payment verified and bound to request', {
         payment_txid: paymentTxid,
