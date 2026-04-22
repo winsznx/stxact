@@ -214,9 +214,9 @@ router.post('/', async (req: Request, res: Response) => {
       ? createHash('sha256').update(JSON.stringify(canonicalize(evidence))).digest('hex')
       : null;
 
-    if (!(nonceManager as any)._initialized) {
+    if (!(nonceManager as unknown as { _initialized: boolean })._initialized) {
       await nonceManager.initialize(network);
-      (nonceManager as any)._initialized = true;
+      (nonceManager as unknown as { _initialized: boolean })._initialized = true;
     }
 
     const nonce = await nonceManager.allocateNonce(senderAddress);
@@ -242,7 +242,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Type annotation required: broadcastTransaction return type causes narrowing issues with TypeScript
     // @stacks/transactions doesn't export a proper type for the response, using any with explicit check below
-    const createDisputeResponse: any = await broadcastTransaction(disputeTx, network);
+    const createDisputeResponse: Record<string, unknown> = await broadcastTransaction(disputeTx, network) as Record<string, unknown>;
 
     if (createDisputeResponse.error) {
       await nonceManager.markFailed(senderAddress, nonce);
@@ -732,9 +732,9 @@ router.post('/refunds', async (req: Request, res: Response) => {
     }
 
     // Initialize nonce manager if first use
-    if (!(nonceManager as any)._initialized) {
+    if (!(nonceManager as unknown as { _initialized: boolean })._initialized) {
       await nonceManager.initialize(network);
-      (nonceManager as any)._initialized = true;
+      (nonceManager as unknown as { _initialized: boolean })._initialized = true;
     }
 
     const nonce = await nonceManager.allocateNonce(senderAddress);
@@ -757,7 +757,7 @@ router.post('/refunds', async (req: Request, res: Response) => {
 
     // Type annotation required: broadcastTransaction return type causes narrowing issues with TypeScript
     // @stacks/transactions doesn't export a proper type for the response, using any with explicit check below
-    const broadcastResponse: any = await broadcastTransaction(refundTx, network);
+    const broadcastResponse: Record<string, unknown> = await broadcastTransaction(refundTx, network) as Record<string, unknown>;
 
     if (broadcastResponse.error) {
       // Mark nonce as failed for retry
