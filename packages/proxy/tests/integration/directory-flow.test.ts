@@ -215,7 +215,7 @@ describe('Service Directory Integration', () => {
       expect(response.body.services.length).toBeGreaterThanOrEqual(2);
 
       const service = response.body.services.find(
-        (s: any) => s.principal === testPrincipal
+        (s: { principal?: string }) => s.principal === testPrincipal
       );
       expect(service).toBeDefined();
       expect(service.endpoint_url).toBe('https://service1.example.com');
@@ -230,7 +230,7 @@ describe('Service Directory Integration', () => {
 
       // #then: Returns only matching category
       expect(response.body.services).toBeDefined();
-      const categories = response.body.services.map((s: any) => s.category);
+      const categories = response.body.services.map((s: { category: string }) => s.category);
       expect(categories.every((c: string) => c === 'data-api')).toBe(true);
     });
 
@@ -245,7 +245,7 @@ describe('Service Directory Integration', () => {
       expect(response.body.services.length).toBeGreaterThanOrEqual(1);
 
       const service = response.body.services.find(
-        (s: any) => s.principal === validBuyerPrincipal
+        (s: { principal?: string }) => s.principal === validBuyerPrincipal
       );
       expect(service).toBeDefined();
     });
