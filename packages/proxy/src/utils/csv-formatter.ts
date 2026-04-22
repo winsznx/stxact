@@ -12,7 +12,7 @@ interface Receipt {
   key_version: number;
   revision: number;
   service_policy_hash: string | null;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
   signature: string;
 }
 
