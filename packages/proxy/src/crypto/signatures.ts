@@ -169,7 +169,8 @@ export async function verifyReceipt(
             return false;
           }
 
-          const onChainKeyData = cvToJSON(keyVersionResult.value.value) as any;
+          type KeyVersionData = { value?: { 'key-version'?: { value?: string } } };
+          const onChainKeyData = cvToJSON(keyVersionResult.value.value) as KeyVersionData;
           const onChainKeyVersion = parseInt(onChainKeyData?.value?.['key-version']?.value || '0', 10);
 
           if (receipt.key_version > onChainKeyVersion) {
