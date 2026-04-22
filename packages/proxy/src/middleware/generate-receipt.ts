@@ -23,12 +23,17 @@ export async function generateReceiptMiddleware(
 ): Promise<void> {
   const originalSend = res.send.bind(res);
 
-  res.send = function (body: any): Response {
+  res.send = function (body: unknown): Response {
     (async () => {
       try {
-        const verifiedPayment = (req as any).verifiedPayment;
-        const requestHash = (req as any).requestHash;
-        const idempotencyKey = (req as any).idempotencyKey;
+        const reqWithExt = req as Request & {
+          verifiedPayment?: { payment_txid: string; payer?: string };
+          requestHash?: string;
+          idempotencyKey?: string;
+        };
+        const verifiedPayment = reqWithExt.verifiedPayment;
+        const requestHash = reqWithExt.requestHash;
+        const idempotencyKey = reqWithExt.idempotencyKey;
 
         if (!verifiedPayment || !requestHash) {
           // No payment verification data, skip receipt generation
@@ -41,7 +46,7 @@ export async function generateReceiptMiddleware(
         }
 
         // Parse response body for deliverable hash
-        let responseData: any;
+        let responseData: unknown;
         try {
           responseData = typeof body === 'string' ? JSON.parse(body) : body;
         } catch {
@@ -252,9 +257,9 @@ export async function updateReputationAsync(
     const senderAddress = process.env.SERVICE_PRINCIPAL!;
 
     // Initialize nonce manager if first use
-    if (!(nonceManager as any)._initialized) {
+    if (!(nonceManager as unknown as { _initialized: boolean })._initialized) {
       await nonceManager.initialize(network);
-      (nonceManager as any)._initialized = true;
+      (nonceManager as unknown as { _initialized: boolean })._initialized = true;
     }
 
     const nonce = await nonceManager.allocateNonce(senderAddress);
