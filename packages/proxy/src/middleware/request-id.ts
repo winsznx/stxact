@@ -15,3 +15,9 @@ export function requestIdMiddleware(req: Request, res: Response, next: NextFunct
   res.setHeader('x-request-id', requestId);
   next();
 }
+
+
+/**
+ * Type definition for custom request identification headers.
+ */
+export interface RequestWithId { readonly requestId: string; }
