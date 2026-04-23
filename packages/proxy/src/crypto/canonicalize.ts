@@ -39,3 +39,9 @@ export function canonicalize(obj: unknown): unknown {
  * const json = JSON.stringify(canonical);
  * // Deterministic output: {"a":{"b":2,"c":3},"m":[{"x":2,"y":1}],"z":1}
  */
+
+
+/**
+ * Represents a deeply JSON-serializable structure for canonicalization.
+ */
+export type JsonSerializable = string | number | boolean | null | JsonSerializable[] | { [key: string]: JsonSerializable };
