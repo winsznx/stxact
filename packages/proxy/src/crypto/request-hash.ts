@@ -64,3 +64,9 @@ export function computeRequestHash(
 export function generateIdempotencyKey(requestHash: string, timestamp: number): string {
   return createHash('sha256').update(`${requestHash}:${timestamp}`).digest('hex');
 }
+
+
+/**
+ * Structured properties required to compute an idempotent request hash.
+ */
+export interface RequestHashPayload { readonly method: string; readonly path: string; readonly body: string; readonly timestamp: number; readonly idempotencyKey?: string; }
