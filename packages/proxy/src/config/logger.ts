@@ -55,3 +55,9 @@ if (nodeEnv !== 'production' && nodeEnv !== 'test') {
 }
 
 logger.info('Logger initialized', { level: logLevel, environment: nodeEnv });
+
+
+/**
+ * Specialized logger context type for strict auditing.
+ */
+export type AuditLoggerContext = Readonly<{ txid: string; principal: string; timestamp: number; }>;
