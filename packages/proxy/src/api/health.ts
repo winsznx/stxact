@@ -27,3 +27,10 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 export default router;
+
+
+/**
+ * Strongly typed response format for health endpoints.
+ * Enables consumers to safely destructure uptime and status.
+ */
+export interface StrictHealthResponse { readonly status: 'ok' | 'error'; readonly uptime: number; readonly timestamp: string; readonly version?: string; }
