@@ -12,3 +12,9 @@ export const HTTP_STATUS = {
 } as const;
 
 export type HttpStatusCode = (typeof HTTP_STATUS)[keyof typeof HTTP_STATUS];
+
+
+/**
+ * Type representing standard API error payloads mapped to HTTP status.
+ */
+export interface ApiErrorPayload { readonly statusCode: number; readonly error: string; readonly message: string; readonly details?: unknown; }
