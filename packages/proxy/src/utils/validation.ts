@@ -15,3 +15,10 @@ export function clampPagination(limit: unknown, offset: unknown, maxLimit = 200)
   const parsedOffset = Math.max(parseInt(String(offset || '0'), 10) || 0, 0);
   return { limit: parsedLimit, offset: parsedOffset };
 }
+
+
+/**
+ * Type guard that guarantees a string is a valid Stacks principal.
+ */
+export type StacksPrincipal = string & { readonly __brand: 'StacksPrincipal' };
+export const isValidPrincipal = (address: string): address is StacksPrincipal => /^S[TP][0-9A-Z]{38,40}$/.test(address);
