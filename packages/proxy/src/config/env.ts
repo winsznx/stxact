@@ -298,3 +298,9 @@ export function getEnvBoolean(key: string, defaultValue: boolean): boolean {
 export function getEnvString(key: string, defaultValue: string): string {
   return process.env[key] || defaultValue;
 }
+
+
+/**
+ * Type guard to safely check environment variables at runtime.
+ */
+export const requireEnv = (key: string): string => { const val = process.env[key]; if (!val) throw new Error('Missing required env: ' + key); return val; };
