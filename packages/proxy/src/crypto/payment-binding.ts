@@ -105,3 +105,17 @@ export async function isPaymentUsed(paymentTxid: string): Promise<boolean> {
     return false;
   }
 }
+
+
+/**
+ * Custom error class for payment binding failures to allow instanceof checks.
+ */
+export class PaymentBindingError extends Error {
+  public readonly txid: string;
+  constructor(message: string, txid: string) {
+    super(message);
+    this.name = 'PaymentBindingError';
+    this.txid = txid;
+    Object.setPrototypeOf(this, PaymentBindingError.prototype);
+  }
+}
