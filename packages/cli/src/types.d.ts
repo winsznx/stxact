@@ -20,3 +20,10 @@ declare module 'x402-stacks' {
     config?: Record<string, unknown>
   ): AxiosInstance;
 }
+
+
+/**
+ * DeepReadonly type recursively makes all properties immutable.
+ * Applied to prevent accidental mutations in CLI args.
+ */
+export type DeepReadonly<T> = T extends Function ? T : T extends object ? { readonly [P in keyof T]: DeepReadonly<T[P]> } : T;
