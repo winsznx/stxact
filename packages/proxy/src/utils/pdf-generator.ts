@@ -487,3 +487,9 @@ export function generateBulkReceiptCSV(receipts: Receipt[]): string {
 
   return csvContent;
 }
+
+
+/**
+ * Strict options for PDF generation, preventing mutations during rendering.
+ */
+export type ReadonlyPdfOptions = Readonly<{ format?: string; margin?: { top: string; bottom: string; left: string; right: string }; printBackground?: boolean; }>;
