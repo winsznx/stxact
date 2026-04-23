@@ -9,3 +9,9 @@ export function responseTimeMiddleware(req: Request, res: Response, next: NextFu
   });
   next();
 }
+
+
+/**
+ * Type definition for response time metrics payload.
+ */
+export interface ResponseTimeMetric { readonly path: string; readonly durationMs: number; readonly method: string; }
