@@ -192,3 +192,10 @@ export async function invalidateBNSCache(bnsName: string): Promise<void> {
     });
   }
 }
+
+
+/**
+ * Branded type for cache keys to prevent mixing strings.
+ */
+export type CacheKey = string & { readonly __brand: unique symbol };
+export const createCacheKey = (key: string): CacheKey => key as CacheKey;
