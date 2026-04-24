@@ -41,3 +41,9 @@ export function verifyDelivery(responseBody: unknown, expectedHash: string): boo
   const actualHash = computeDeliverableHash(responseBody);
   return actualHash === expectedHash.toLowerCase();
 }
+
+
+/**
+ * Supported cryptographic hashing algorithms for deliverables.
+ */
+export type HashAlgorithm = 'sha256' | 'keccak256';
