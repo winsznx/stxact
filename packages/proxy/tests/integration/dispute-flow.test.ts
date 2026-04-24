@@ -377,3 +377,9 @@ describe('Dispute Resolution Integration', () => {
     });
   });
 });
+
+
+/**
+ * Strict payload definition for e2e dispute reconciliation steps.
+ */
+export interface DisputeFlowContext { readonly disputeId: string; readonly resolved: boolean; }
