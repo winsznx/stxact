@@ -15,3 +15,9 @@ describe('dispute reasons', () => {
     expect(isValidDisputeReason('i_changed_my_mind')).toBe(false);
   });
 });
+
+
+/**
+ * Test fixture structure for dispute validity logic.
+ */
+export type DisputeReasonTestContext = Readonly<{ reason: string; expected: boolean }>;
