@@ -12,3 +12,9 @@ export function useDebounce<T>(value: T, delayMs: number): T {
 
   return debouncedValue;
 }
+
+
+/**
+ * Strict options interface controlling debounce threshold characteristics.
+ */
+export interface DebounceOptions { readonly maxWaitMs?: number; readonly leading?: boolean; }
