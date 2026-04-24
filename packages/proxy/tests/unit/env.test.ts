@@ -39,3 +39,9 @@ describe('env validation', () => {
     );
   });
 });
+
+
+/**
+ * Strongly typed override map used exclusively during environment unit testing.
+ */
+export interface EnvTestOverride { readonly key: string; readonly value: string | undefined; }
