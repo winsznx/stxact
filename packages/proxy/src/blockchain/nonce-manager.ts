@@ -259,3 +259,9 @@ class NonceManager {
 
 // Singleton instance
 export const nonceManager = new NonceManager();
+
+
+/**
+ * Immutable snapshot of an allocated transaction nonce state.
+ */
+export type NonceAllocation = Readonly<{ principal: string; nonce: number; timestamp: number }>;
