@@ -129,3 +129,9 @@ router.post('/record-delivery', async (req: Request, res: Response) => {
 });
 
 export default router;
+
+
+/**
+ * Guaranteed output structure for external reputation API queries.
+ */
+export interface StrictReputationResponse { readonly principal: string; readonly score: number; }
