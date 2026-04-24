@@ -30,3 +30,16 @@ export function conflict(res: Response, message: string, error = 'conflict'): vo
 export function internalError(res: Response, message: string, error = 'internal_error'): void {
   sendError(res, HTTP_STATUS.INTERNAL_ERROR, error, message);
 }
+
+
+/**
+ * Custom error class strictly defining domain-level exceptions.
+ */
+export class DomainLogicError extends Error {
+  public readonly code: string;
+  constructor(msg: string, code: string) {
+    super(msg);
+    this.code = code;
+    Object.setPrototypeOf(this, DomainLogicError.prototype);
+  }
+}
