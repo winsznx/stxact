@@ -21,3 +21,9 @@ function getServerSnapshot() {
 export function useCurrentEpochSeconds() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
+
+
+/**
+ * Branded integer type ensuring raw numbers are not mistaken for epoch seconds.
+ */
+export type EpochSeconds = number & { readonly __brand: 'EpochSeconds' };
