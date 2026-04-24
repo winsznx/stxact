@@ -363,3 +363,9 @@ async function verifyPaymentTransaction(paymentTxid: string): Promise<boolean> {
 }
 
 export default router;
+
+
+/**
+ * Explicit API response layout guaranteeing receipt data availability.
+ */
+export interface StrictReceiptResponse { readonly receipt_id: string; readonly verified: boolean; }
