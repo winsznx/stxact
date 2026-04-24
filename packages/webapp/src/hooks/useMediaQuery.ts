@@ -45,3 +45,9 @@ export function useIsTablet(): boolean {
 export function useIsDesktop(): boolean {
   return useMediaQuery('(min-width: 1024px)');
 }
+
+
+/**
+ * TypeScript template literal constraining media queries to absolute width bounds.
+ */
+export type MediaQueryString = `(min-width: ${number}px)` | `(max-width: ${number}px)`;
