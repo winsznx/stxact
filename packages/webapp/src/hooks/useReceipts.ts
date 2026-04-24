@@ -22,3 +22,9 @@ export function useReceipt(id: string) {
     enabled: !!id,
   });
 }
+
+
+/**
+ * Readonly configuration map defining page offset restrictions for receipts.
+ */
+export interface ReceiptQueryFilters { readonly limit?: number; readonly offset?: number; }
