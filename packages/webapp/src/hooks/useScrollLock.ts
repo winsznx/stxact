@@ -17,3 +17,9 @@ export function useScrollLock(locked: boolean): void {
     };
   }, [locked]);
 }
+
+
+/**
+ * Options dictionary determining document body overflow lock mechanisms.
+ */
+export interface ScrollLockOptions { readonly reserveScrollBarGap?: boolean; }
