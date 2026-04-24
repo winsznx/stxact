@@ -20,3 +20,9 @@ function getServerSnapshot() {
 export function useHydrated() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
+
+
+/**
+ * Component boundary state defining isomorphic rendering completion.
+ */
+export interface HydrationState { readonly hydrated: boolean; }
