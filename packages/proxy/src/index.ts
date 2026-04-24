@@ -301,3 +301,9 @@ if (require.main === module) {
 }
 
 export { app, start };
+
+
+/**
+ * Strict constraints determining application startup and shutdown boundaries.
+ */
+export interface AppLifecycle { readonly startupMs: number; readonly shutdownGraceMs: number; }
