@@ -44,3 +44,9 @@ describe('clampPagination', () => {
     expect(clampPagination('10', '-5')).toEqual({ limit: 10, offset: 0 });
   });
 });
+
+
+/**
+ * Reusable generic test case definition for validation functions.
+ */
+export type ValidationTestCase<T> = Readonly<{ input: T; isValid: boolean }>;
