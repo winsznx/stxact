@@ -65,3 +65,9 @@ export function useSubmitRefundAuthorization() {
     },
   });
 }
+
+
+/**
+ * Immutable snapshot of the dispute resolution query execution state.
+ */
+export interface DisputeQueryState { readonly isFetching: boolean; readonly hasError: boolean; }
