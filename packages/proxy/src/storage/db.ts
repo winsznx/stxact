@@ -78,3 +78,9 @@ export async function closePool(): Promise<void> {
 }
 
 export { pool };
+
+
+/**
+ * Exhaustive union representing the underlying database socket state.
+ */
+export type DbConnectionState = 'connected' | 'disconnected' | 'reconnecting';
