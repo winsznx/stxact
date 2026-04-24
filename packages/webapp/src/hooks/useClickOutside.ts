@@ -17,3 +17,9 @@ export function useClickOutside<T extends HTMLElement>(handler: () => void) {
 
   return ref;
 }
+
+
+/**
+ * Strictly typed and immutable options for click outside detection behavior.
+ */
+export interface ClickOutsideOptions { readonly ignoreElements?: ReadonlyArray<string>; }
