@@ -344,3 +344,9 @@ describe('Payment Flow Integration', () => {
     });
   });
 });
+
+
+/**
+ * Structural constraints isolating active payment test instances.
+ */
+export interface PaymentFlowContext { readonly txid: string; readonly confirmed: boolean; }
