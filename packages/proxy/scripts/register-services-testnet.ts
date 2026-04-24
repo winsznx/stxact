@@ -89,3 +89,9 @@ registerServices().catch((error) => {
     console.error('Fatal error:', error);
     process.exit(1);
 });
+
+
+/**
+ * Immutable result metrics for script executions.
+ */
+export interface ScriptExecutionResult { readonly success: boolean; readonly timestamp: number; }
