@@ -10,3 +10,9 @@ export function useReputation(principal: string | null) {
     staleTime: QUERY_STALE_TIMES.reputation,
   });
 }
+
+
+/**
+ * Exact structure guarantee for resolved reputation contract metrics.
+ */
+export interface ReputationQueryResult { readonly score: number; readonly totalReviews: number; }
