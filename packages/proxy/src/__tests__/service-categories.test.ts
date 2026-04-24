@@ -15,3 +15,9 @@ describe('service categories', () => {
     expect(isValidServiceCategory('blockchain')).toBe(false);
   });
 });
+
+
+/**
+ * Test fixture structure for category validation bounds.
+ */
+export type ServiceCategoryTestContext = Readonly<{ category: string; valid: boolean }>;
