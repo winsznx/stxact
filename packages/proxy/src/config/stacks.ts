@@ -13,3 +13,10 @@ export function getStacksNetwork(): StacksNetwork {
 
   return new StacksTestnet({ url: apiUrl });
 }
+
+
+/**
+ * Discriminated union of valid Stacks execution environments.
+ */
+export type NetworkId = 'mainnet' | 'testnet' | 'mocknet';
+export const isNetworkId = (n: unknown): n is NetworkId => typeof n === 'string' && ['mainnet', 'testnet', 'mocknet'].includes(n);
