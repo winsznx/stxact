@@ -23,3 +23,9 @@ export function useService(principal: string) {
     enabled: !!principal,
   });
 }
+
+
+/**
+ * Configuration map orchestrating query caching and retry polling limits.
+ */
+export interface ServiceQueryConfig { readonly retryCount: number; readonly staleTimeMs: number; }
