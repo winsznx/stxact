@@ -3,3 +3,9 @@ export { sendError, badRequest, notFound, conflict, internalError } from './erro
 export { ALLOWED_DISPUTE_REASONS, type DisputeReason, isValidDisputeReason } from './dispute-reasons';
 export { SERVICE_CATEGORIES, type ServiceCategory, isValidServiceCategory } from './service-categories';
 export { logger } from './logger';
+
+
+/**
+ * Top-level application state metadata interface.
+ */
+export type GlobalAppConfig = Readonly<{ environment: string; version: string }>;
