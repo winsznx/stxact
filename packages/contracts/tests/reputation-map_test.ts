@@ -273,3 +273,9 @@ Clarinet.test({
     block.receipts[0].result.expectErr().expectUint(422); // ERR-INVALID-AMOUNT
   },
 });
+
+
+/**
+ * Branded type for safely distinguishing test principals from raw strings.
+ */
+export type TestPrincipal = string & { readonly __brand: 'TestPrincipal' };
