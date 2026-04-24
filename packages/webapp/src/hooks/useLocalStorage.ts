@@ -32,3 +32,9 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T 
 
   return [storedValue, setValue, removeValue];
 }
+
+
+/**
+ * Branded string preventing unauthorized key access in local storage bounds.
+ */
+export type LocalStorageKey = string & { readonly __brand: 'LocalStorageKey' };
