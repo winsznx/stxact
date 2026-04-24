@@ -144,3 +144,9 @@ Clarinet.test({
     // Verify service data is present
   },
 });
+
+
+/**
+ * Readonly context isolating contract state variables during test runs.
+ */
+export interface ContractTestContext { readonly chainId: number; readonly sender: string; }
