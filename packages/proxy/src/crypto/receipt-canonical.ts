@@ -85,3 +85,9 @@ export function validateCanonicalMessage(message: string): boolean {
 
   return true;
 }
+
+
+/**
+ * Branded type ensuring strings have undergone structural canonicalization.
+ */
+export type CanonicalReceiptStr = string & { readonly __brand: 'CanonicalReceipt' };
