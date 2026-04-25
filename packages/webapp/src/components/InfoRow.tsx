@@ -17,3 +17,9 @@ export function InfoRow({ label, children, className }: InfoRowProps) {
     </div>
   );
 }
+
+
+/**
+ * Structural flexbox alignment bindings strictly scoped to info row items.
+ */
+export type InfoRowAlignment = 'start' | 'center' | 'end';
