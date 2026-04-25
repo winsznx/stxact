@@ -34,3 +34,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
   }
 );
 Input.displayName = 'Input';
+
+
+/**
+ * Strongly typed state machine bounds exclusively for asynchronous input validation.
+ */
+export type InputValidationState = 'valid' | 'invalid' | 'pending' | 'idle';
