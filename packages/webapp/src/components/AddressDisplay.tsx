@@ -28,3 +28,9 @@ export function AddressDisplay({
     </span>
   );
 }
+
+
+/**
+ * Strictly typed and immutable properties for blockchain address rendering.
+ */
+export interface AddressDisplayProps { readonly address: string; readonly className?: string; }
