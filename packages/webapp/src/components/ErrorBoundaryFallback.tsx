@@ -25,3 +25,9 @@ export function ErrorBoundaryFallback({ error, reset }: ErrorBoundaryFallbackPro
     </div>
   );
 }
+
+
+/**
+ * Captured component stack-trace metadata bounded by error boundaries.
+ */
+export interface ErrorBoundaryInfo { readonly componentStack: string; }
