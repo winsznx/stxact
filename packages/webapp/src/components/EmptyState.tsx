@@ -25,3 +25,9 @@ export function EmptyState({ icon: Icon, title, description, action, className }
     </div>
   );
 }
+
+
+/**
+ * Explicitly structured callback dictionary for fallback empty state actions.
+ */
+export interface EmptyStateAction { readonly label: string; readonly onClick: () => void; }
