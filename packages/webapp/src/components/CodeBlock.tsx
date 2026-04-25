@@ -57,3 +57,9 @@ export function CodeBlock({ title, code, language = 'text', className }: CodeBlo
     </div>
   );
 }
+
+
+/**
+ * Supported language enumerations for code block syntax tokenization.
+ */
+export type SupportedCodeLanguage = 'typescript' | 'json' | 'bash' | 'text';
