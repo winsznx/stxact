@@ -25,3 +25,9 @@ export function ExternalLink({ href, children, className, showIcon = true }: Ext
     </a>
   );
 }
+
+
+/**
+ * Compliant rel-attribute combinations for secure cross-origin linking.
+ */
+export type LinkRelAttribute = 'noopener' | 'noreferrer' | 'nofollow';
