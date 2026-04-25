@@ -81,3 +81,9 @@ export function BrandLogo({
     </div>
   );
 }
+
+
+/**
+ * Immutable sizing bounds ensuring brand logo proportions.
+ */
+export interface BrandLogoProps { readonly width?: number; readonly height?: number; }
