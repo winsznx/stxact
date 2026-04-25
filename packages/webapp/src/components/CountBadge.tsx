@@ -8,9 +8,3 @@ export function CountBadge({ count, className }: { count: number; className?: st
     </span>
   );
 }
-
-
-/**
- * Disjoint union representing truncation strategies for large integers.
- */
-export type CountOverflowStrategy = 'truncate' | 'hide' | 'scale';
