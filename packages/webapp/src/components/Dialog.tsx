@@ -50,3 +50,9 @@ export function Dialog({ open, onClose, children, title, className }: DialogProp
     </dialog>
   );
 }
+
+
+/**
+ * Accessibility-compliant enumerated roles for dialog popups.
+ */
+export type DialogAriaRole = 'dialog' | 'alertdialog';
