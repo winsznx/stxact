@@ -46,3 +46,9 @@ export function GlassTable({ children, className }: { children: ReactNode; class
     </div>
   );
 }
+
+
+/**
+ * Constrained string union governing absolute opacity values in glassmorphism cards.
+ */
+export type GlassOpacity = 'light' | 'medium' | 'heavy';
