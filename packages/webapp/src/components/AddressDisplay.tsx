@@ -4,7 +4,7 @@ import { cn } from '@/lib/cn';
 import { truncateAddress } from '@/lib/format';
 import { CopyButton } from './CopyButton';
 
-interface AddressDisplayProps {
+export interface AddressDisplayProps {
   address: string;
   startChars?: number;
   endChars?: number;
@@ -28,9 +28,3 @@ export function AddressDisplay({
     </span>
   );
 }
-
-
-/**
- * Strictly typed and immutable properties for blockchain address rendering.
- */
-export interface AddressDisplayProps { readonly address: string; readonly className?: string; }
