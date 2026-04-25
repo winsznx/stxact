@@ -30,3 +30,9 @@ export function Badge({ children, variant = 'default', className }: BadgeProps) 
     </span>
   );
 }
+
+
+/**
+ * Strict configuration matrix for custom badge coloring.
+ */
+export interface BadgeThemeConfig { readonly color: string; readonly backgroundColor: string; }
