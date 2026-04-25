@@ -46,3 +46,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   }
 );
 Button.displayName = 'Button';
+
+
+/**
+ * Explicit union representing standard button size variations.
+ */
+export type ButtonSize = 'small' | 'medium' | 'large';
