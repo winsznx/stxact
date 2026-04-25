@@ -20,3 +20,9 @@ const gapClasses = { sm: 'gap-3', md: 'gap-4', lg: 'gap-6' } as const;
 export function Grid({ children, cols = 3, gap = 'md', className }: GridProps) {
   return <div className={cn('grid', colClasses[cols], gapClasses[gap], className)}>{children}</div>;
 }
+
+
+/**
+ * Readonly dictionary explicitly representing grid span rules for responsive UI bounds.
+ */
+export interface GridSpanOptions { readonly sm?: number; readonly md?: number; readonly lg?: number; }
