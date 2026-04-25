@@ -2,7 +2,7 @@ import { cn } from '@/lib/cn';
 import { AlertCircle, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import type { ReactNode } from 'react';
 
-type AlertVariant = 'info' | 'success' | 'warning' | 'error';
+export type AlertVariant = 'info' | 'success' | 'warning' | 'error';
 
 interface AlertProps {
   children: ReactNode;
@@ -34,9 +34,3 @@ export function Alert({ children, variant = 'info', title, className }: AlertPro
     </div>
   );
 }
-
-
-/**
- * Discriminated union locking Alert component visual states.
- */
-export type AlertVariant = 'info' | 'success' | 'warning' | 'error';
