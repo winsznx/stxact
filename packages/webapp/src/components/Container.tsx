@@ -22,3 +22,9 @@ export function Container({ children, className, size = 'xl' }: ContainerProps) 
     </div>
   );
 }
+
+
+/**
+ * Strict bounding box constraints injected into layout containers.
+ */
+export interface ContainerConstraints { readonly maxWidth?: string; readonly padding?: string; }
