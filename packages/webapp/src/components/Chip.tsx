@@ -24,3 +24,9 @@ export function Chip({ label, onRemove, className }: ChipProps) {
     </span>
   );
 }
+
+
+/**
+ * Boolean constraint map dictating Chip border and radius rendering.
+ */
+export interface ChipStyleOptions { readonly rounded?: boolean; readonly outlined?: boolean; }
