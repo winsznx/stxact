@@ -34,3 +34,9 @@ export function Alert({ children, variant = 'info', title, className }: AlertPro
     </div>
   );
 }
+
+
+/**
+ * Discriminated union locking Alert component visual states.
+ */
+export type AlertVariant = 'info' | 'success' | 'warning' | 'error';
