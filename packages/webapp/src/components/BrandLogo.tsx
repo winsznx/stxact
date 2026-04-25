@@ -11,7 +11,7 @@ interface BrandGlyphProps {
   decorative?: boolean;
 }
 
-interface BrandLogoProps {
+export interface BrandLogoProps {
   className?: string;
   iconClassName?: string;
   iconStyle?: CSSProperties;
@@ -81,9 +81,3 @@ export function BrandLogo({
     </div>
   );
 }
-
-
-/**
- * Immutable sizing bounds ensuring brand logo proportions.
- */
-export interface BrandLogoProps { readonly width?: number; readonly height?: number; }
