@@ -39,3 +39,9 @@ export function Identicon({ address, size = 'md', className }: IdenticonProps) {
     </div>
   );
 }
+
+
+/**
+ * Strictly typed aesthetic layer configuration for hashed identicon generation.
+ */
+export interface IdenticonTheme { readonly background?: string; readonly foreground?: string; }
