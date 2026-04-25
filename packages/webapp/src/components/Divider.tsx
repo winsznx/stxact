@@ -28,3 +28,9 @@ export function Divider({ className, variant = 'solid' }: DividerProps) {
     />
   );
 }
+
+
+/**
+ * Layout constraint strictly mapping divider rendering axis.
+ */
+export type DividerOrientation = 'horizontal' | 'vertical';
