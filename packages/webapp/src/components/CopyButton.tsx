@@ -33,3 +33,9 @@ export function CopyButton({ value, className }: CopyButtonProps) {
     </button>
   );
 }
+
+
+/**
+ * Telemetry structure representing clipboard mutation success windows.
+ */
+export interface CopyActionMetrics { readonly copied: boolean; readonly timestamp: number; }
