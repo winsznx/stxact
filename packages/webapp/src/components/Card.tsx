@@ -37,9 +37,3 @@ export function CardFooter({ children, className }: { children: ReactNode; class
     </div>
   );
 }
-
-
-/**
- * Structural map binding composite Card rendering elements.
- */
-export interface CardSubcomponents { readonly Header: React.FC<any>; readonly Body: React.FC<any>; readonly Footer: React.FC<any>; }
