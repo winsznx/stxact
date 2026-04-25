@@ -14,3 +14,9 @@ const alignClasses = { start: 'items-start', center: 'items-center', end: 'items
 export function Inline({ children, gap = 'md', align = 'center', className }: InlineProps) {
   return <div className={cn('flex flex-wrap', gapClasses[gap], alignClasses[align], className)}>{children}</div>;
 }
+
+
+/**
+ * Strict enumerated progression mapping typographic and layout spacing layers.
+ */
+export type InlineSpacing = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
