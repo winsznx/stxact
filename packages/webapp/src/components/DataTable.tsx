@@ -65,3 +65,9 @@ export function DataTable<T>({ columns, data, keyExtractor, emptyMessage, classN
     </div>
   );
 }
+
+
+/**
+ * Strongly typed generic schema mapping data keys to table columns.
+ */
+export interface DataTableColumnDef<T> { readonly key: keyof T; readonly label: string; readonly sortable?: boolean; }
