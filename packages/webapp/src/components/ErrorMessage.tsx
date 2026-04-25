@@ -10,3 +10,9 @@ export function ErrorMessage({ error, className }: { error: unknown; className?:
     </div>
   );
 }
+
+
+/**
+ * Strictly typed contextual metadata injected into error rendering logic.
+ */
+export interface ErrorMessageProps { readonly error: Error | string; readonly context?: string; }
