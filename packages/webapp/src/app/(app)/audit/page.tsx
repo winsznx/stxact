@@ -27,7 +27,7 @@ type VerificationSummary = {
 /**
  * Executes logic associated with audit page.
  */
-export default function AuditPage(): JSX.Element {
+export default function AuditPage() {
   const chain = process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
   const { address: walletAddress } = useWallet();
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
