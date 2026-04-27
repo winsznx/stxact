@@ -15,9 +15,6 @@ type DisputeReason =
   | 'incomplete_delivery'
   | 'fraudulent_quote';
 
-/**
- * Executes logic associated with new dispute page.
- */
 export default function NewDisputePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
