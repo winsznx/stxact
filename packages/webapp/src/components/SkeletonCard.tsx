@@ -1,6 +1,3 @@
-/**
- * Executes logic associated with skeleton card.
- */
 export function SkeletonCard() {
   return (
     <div className="animate-pulse rounded-none border border bg-background-raised p-6">
@@ -33,9 +30,6 @@ export function SkeletonCard() {
   );
 }
 
-/**
- * Executes logic associated with skeleton table.
- */
 export function SkeletonTable() {
   return (
     <div className="animate-pulse space-y-3">
@@ -51,9 +45,6 @@ export function SkeletonTable() {
   );
 }
 
-/**
- * Executes logic associated with skeleton stat.
- */
 export function SkeletonStat() {
   return (
     <div className="animate-pulse rounded-none border border bg-background-raised p-6">
