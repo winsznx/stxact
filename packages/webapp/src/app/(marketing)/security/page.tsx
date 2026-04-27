@@ -20,9 +20,6 @@ const controls = [
   },
 ];
 
-/**
- * Executes logic associated with security page.
- */
 export default function SecurityPage() {
   return (
     <div className="min-h-screen bg-background">
