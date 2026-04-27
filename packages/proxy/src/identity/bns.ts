@@ -1,5 +1,6 @@
 import { callReadOnlyFunction, bufferCV, ClarityType } from '@stacks/transactions';
 import { getNetworkId } from '../config/network';
+import { getBnsContract } from '../config/token-contracts';
 import { StacksNetwork, StacksTestnet, StacksMainnet } from '@stacks/network';
 import { getBNSCacheEntry, setBNSCacheEntry, invalidateBNSCache } from '../storage/cache';
 import { logger } from '../config/logger';
@@ -13,8 +14,8 @@ import { logger } from '../config/logger';
  * PRD Reference: Section 9 - Identity Layer (lines 1277-1330)
  */
 
-const BNS_CONTRACT_ADDRESS = 'SP000000000000000000002Q6VF78';
-const BNS_CONTRACT_NAME = 'bns';
+function bnsAddress() { return getBnsContract().address; }
+function bnsName() { return getBnsContract().name; }
 
 function getStacksNetwork(): StacksNetwork {
   const network = getNetworkId();
@@ -104,12 +105,12 @@ export async function resolveBNSOwner(bnsName: string): Promise<string | null> {
     });
 
     const result = await callReadOnlyFunction({
-      contractAddress: BNS_CONTRACT_ADDRESS,
-      contractName: BNS_CONTRACT_NAME,
+      contractAddress: bnsAddress(),
+      contractName: bnsName(),
       functionName: 'name-resolve',
       functionArgs: [bufferCV(Buffer.from(name)), bufferCV(Buffer.from(namespace))],
       network,
-      senderAddress: BNS_CONTRACT_ADDRESS,
+      senderAddress: bnsAddress(),
     });
 
     if (result.type === ClarityType.ResponseOk) {
