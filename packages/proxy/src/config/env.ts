@@ -81,16 +81,14 @@ const envVarDefinitions: RequiredEnvVars = {
 
   // Stacks
   STACKS_NETWORK: {
-    required: false,
+    required: true,
     type: 'string',
-    defaultValue: 'testnet',
     description: 'Stacks network (testnet or mainnet)',
   },
   STACKS_API_URL: {
     required: false,
     type: 'url',
-    defaultValue: 'https://api.testnet.hiro.so',
-    description: 'Stacks API URL',
+    description: 'Stacks API URL (derived from STACKS_NETWORK if unset)',
   },
   SELLER_PRIVATE_KEY: {
     required: true,
@@ -236,7 +234,8 @@ export function validateEnv(): void {
 
   const sellerPrivateKey = process.env.SELLER_PRIVATE_KEY;
   const servicePrincipal = process.env.SERVICE_PRINCIPAL;
-  const stacksNetwork = process.env.STACKS_NETWORK || 'testnet';
+  const stacksNetwork = process.env.STACKS_NETWORK;
+  if (!stacksNetwork) throw new Error('STACKS_NETWORK is required');
 
   if (sellerPrivateKey && servicePrincipal) {
     try {
