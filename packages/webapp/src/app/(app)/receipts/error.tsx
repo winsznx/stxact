@@ -3,9 +3,6 @@
 import { useEffect } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
-/**
- * Executes logic associated with receipts error.
- */
 export default function ReceiptsError({
   error,
   reset,
