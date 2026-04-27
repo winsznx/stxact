@@ -1,9 +1,6 @@
 import Link from 'next/link';
 import { AlertCircle, ArrowLeft } from 'lucide-react';
 
-/**
- * Executes logic associated with not found.
- */
 export default function NotFound() {
   return (
     <div className="flex min-h-[80vh] items-center justify-center bg-background px-4 py-12">
