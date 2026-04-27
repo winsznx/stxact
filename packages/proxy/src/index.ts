@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { getSbtcContractId } from './config/token-contracts';
 dotenv.config();
 
 import express, { Application } from 'express';
@@ -174,7 +175,7 @@ app.get('/.well-known/stxact-config', async (_req, res) => {
       supported_tokens: [
         {
           network: 'stacks',
-          token_contract: 'SP2ASJZHEKV2MBDYWS1HT63WXYXWX49NF.sbtc-token',
+          token_contract: getSbtcContractId(),
           symbol: 'sBTC',
         },
       ],
