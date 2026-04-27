@@ -17,9 +17,6 @@ import {
 
 type SortKey = 'reputation_desc' | 'deliveries_desc' | 'registered_desc';
 
-/**
- * Executes logic associated with directory page.
- */
 export default function DirectoryPage() {
   const [category, setCategory] = useState<string>('');
   const [token, setToken] = useState<string>('');
