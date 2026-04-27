@@ -2,20 +2,20 @@ import { describe, it, expect } from 'vitest';
 import { cn } from '../cn';
 
 describe('cn', () => {
-  it('merges class names', () => {
-    expect(cn('foo', 'bar')).toBe('foo bar');
+  it('joins simple class names', () => {
+    expect(cn('a', 'b')).toBe('a b');
   });
 
-  it('handles conditional classes', () => {
-    expect(cn('base', false && 'hidden', 'extra')).toBe('base extra');
+  it('drops falsy', () => {
+    expect(cn('a', false && 'b', null, undefined, 'c')).toBe('a c');
   });
 
-  it('resolves tailwind conflicts', () => {
-    const result = cn('px-4', 'px-6');
-    expect(result).toBe('px-6');
+  it('merges conflicting tailwind classes', () => {
+    expect(cn('px-2', 'px-4')).toBe('px-4');
   });
 
-  it('handles undefined and null', () => {
-    expect(cn('base', undefined, null)).toBe('base');
+  it('preserves non-conflicting classes', () => {
+    expect(cn('text-sm', 'font-bold')).toContain('text-sm');
+    expect(cn('text-sm', 'font-bold')).toContain('font-bold');
   });
 });
