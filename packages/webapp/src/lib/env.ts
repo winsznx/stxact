@@ -2,31 +2,23 @@ import { z } from 'zod';
 
 const envSchema = z.object({
   NEXT_PUBLIC_API_URL: z.string().url().default('http://127.0.0.1:3001'),
-  NEXT_PUBLIC_STACKS_NETWORK: z.enum(['testnet', 'mainnet']).default('testnet'),
-  NEXT_PUBLIC_STACKS_API_URL: z.string().url().default('https://api.testnet.hiro.so'),
+  NEXT_PUBLIC_STACKS_NETWORK: z.enum(['testnet', 'mainnet']),
+  NEXT_PUBLIC_STACKS_API_URL: z.string().url().optional(),
   NEXT_PUBLIC_APP_NAME: z.string().default('stxact'),
   NEXT_PUBLIC_APP_URL: z.string().url().optional(),
-  NEXT_PUBLIC_ENABLE_DISPUTES: z.string().default('true').transform((val) => val === 'true'),
-  NEXT_PUBLIC_ENABLE_RECEIPT_ANCHORING: z.string().default('false').transform((val) => val === 'true'),
-  NEXT_PUBLIC_ENABLE_REPUTATION: z.string().default('true').transform((val) => val === 'true'),
+  NEXT_PUBLIC_ENABLE_DISPUTES: z.string().default('true').transform((v) => v === 'true'),
+  NEXT_PUBLIC_ENABLE_RECEIPT_ANCHORING: z.string().default('false').transform((v) => v === 'true'),
+  NEXT_PUBLIC_ENABLE_REPUTATION: z.string().default('true').transform((v) => v === 'true'),
   NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
   NEXT_PUBLIC_ANALYTICS_ID: z.string().optional(),
 });
 
-/**
- * Core definition structure for Env.
- */
 export type Env = z.infer<typeof envSchema>;
 
 let cachedEnv: Env | null = null;
 
-/**
- * Executes logic associated with get env.
- */
 export function getEnv(): Env {
-  if (cachedEnv) {
-    return cachedEnv;
-  }
+  if (cachedEnv) return cachedEnv;
 
   try {
     cachedEnv = envSchema.parse({
@@ -41,7 +33,6 @@ export function getEnv(): Env {
       NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN,
       NEXT_PUBLIC_ANALYTICS_ID: process.env.NEXT_PUBLIC_ANALYTICS_ID,
     });
-
     return cachedEnv;
   } catch (error) {
     console.error('Environment validation failed:', error);
@@ -49,7 +40,4 @@ export function getEnv(): Env {
   }
 }
 
-/**
- * Exported constant for env.
- */
 export const env = getEnv();
