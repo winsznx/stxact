@@ -1,4 +1,9 @@
-import { STACKS_EXPLORER_BASE, STACKS_ADDRESS_REGEX } from '@/lib/constants';
+import {
+  STACKS_EXPLORER_BASE,
+  STACKS_ADDRESS_REGEX,
+  STACKS_MAINNET_ADDRESS_REGEX,
+  STACKS_TESTNET_ADDRESS_REGEX,
+} from '@/lib/constants';
 import { getNetwork, type StacksNetwork } from '@/lib/network';
 
 export function getTransactionUrl(txId: string, network?: StacksNetwork): string {
@@ -14,6 +19,18 @@ export function getAddressUrl(principal: string, network?: StacksNetwork): strin
 
 export function isValidStacksAddress(address: string): boolean {
   return STACKS_ADDRESS_REGEX.test(address);
+}
+
+export function isMainnetAddress(address: string): boolean {
+  return STACKS_MAINNET_ADDRESS_REGEX.test(address);
+}
+
+export function isTestnetAddress(address: string): boolean {
+  return STACKS_TESTNET_ADDRESS_REGEX.test(address);
+}
+
+export function isAddressOnNetwork(address: string, network: StacksNetwork): boolean {
+  return network === 'mainnet' ? isMainnetAddress(address) : isTestnetAddress(address);
 }
 
 export function getContractId(address: string, contractName: string): string {
