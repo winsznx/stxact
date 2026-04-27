@@ -1,22 +1,13 @@
 import { ImageResponse } from 'next/og';
 import { BrandGlyph } from '@/components/BrandLogo';
 
-/**
- * Exported constant for size.
- */
 export const size = {
   width: 180,
   height: 180,
 };
 
-/**
- * Exported constant for content type.
- */
 export const contentType = 'image/png';
 
-/**
- * Executes logic associated with apple icon.
- */
 export default function AppleIcon() {
   return new ImageResponse(
     (
