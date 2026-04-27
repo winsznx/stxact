@@ -1,3 +1,4 @@
+import { getNetwork } from '@/lib/network';
 'use client';
 
 import { useState } from 'react';
@@ -74,7 +75,7 @@ function getApiBaseUrl() {
 }
 
 function getStacksNetwork() {
-  return process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
+  return getNetwork();
 }
 
 async function parseJsonSafe(response: Response) {
