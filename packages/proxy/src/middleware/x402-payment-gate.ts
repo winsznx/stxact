@@ -4,6 +4,7 @@ import { verifyPaymentBinding } from '../crypto/payment-binding';
 import { computeRequestHash, getTimestampBucket } from '../crypto/request-hash';
 import { checkIdempotency } from '../storage/cache';
 import { logger } from '../config/logger';
+import { getStacksApiUrl } from '../config/network';
 
 /**
  * x402 Payment Gate using Official x402-stacks Library
@@ -333,7 +334,7 @@ async function tryOnChainPaymentFallback(
 
 async function fetchConfirmedTxMetadata(paymentTxid: string): Promise<ConfirmedTxMetadata> {
   const txid = paymentTxid.startsWith('0x') ? paymentTxid : `0x${paymentTxid}`;
-  const stacksApiUrl = process.env.STACKS_API_URL || 'https://api.testnet.hiro.so';
+  const stacksApiUrl = getStacksApiUrl();
   const axios = await import('axios');
 
   const response = await axios.default.get(
