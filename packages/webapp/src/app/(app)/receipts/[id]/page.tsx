@@ -1,5 +1,7 @@
 'use client';
 
+import { getTransactionUrl } from '@/lib/stacks';
+
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Download, ExternalLink, ArrowLeft, Copy, Check } from 'lucide-react';
@@ -122,8 +124,7 @@ export default function ReceiptDetailPage() {
     );
   }
 
-  const chain = process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
 
   return (
     <div className="min-h-screen bg-background">
@@ -238,7 +239,7 @@ export default function ReceiptDetailPage() {
                   File Dispute
                 </Link>
                 <a
-                  href={`https://explorer.hiro.so/txid/${receipt.payment_txid}?chain=${chain}`}
+                  href={getTransactionUrl(receipt.payment_txid)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 rounded-none border border px-3 py-2 text-sm hover:bg-background-raised"
