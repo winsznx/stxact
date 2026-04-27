@@ -10,18 +10,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 
-/**
- * Core definition structure for AppNavItem.
- */
 export interface AppNavItem {
   name: string;
   href: string;
   icon: LucideIcon;
 }
 
-/**
- * Core definition structure for NavItem.
- */
 export interface NavItem {
   name: string;
   href: string;
