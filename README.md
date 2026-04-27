@@ -488,3 +488,11 @@ Launch stxact infrastructure without expanding trust assumptions.
 ## License
 
 MIT
+
+## Mainnet readiness
+
+stxact is testnet-first by default. To deploy against mainnet, see
+[docs/internal/MAINNET_READINESS.md](docs/internal/MAINNET_READINESS.md) for
+the full checklist and `docs/internal/TESTNET_TO_MAINNET_MIGRATION.md` for the
+runbook. The webapp and proxy will refuse to start in production without an
+explicit `STACKS_NETWORK` (or `NEXT_PUBLIC_STACKS_NETWORK`) value.
