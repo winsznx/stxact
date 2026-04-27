@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { connect as connectWallet, disconnect as disconnectWallet, getLocalStorage } from '@stacks/connect';
 import { useRouter } from 'next/navigation';
 import { useHydrated } from '@/hooks/useHydrated';
+import { getNetwork, getStacksApiUrl } from '@/lib/network';
 
 interface WalletContextType {
   address: string | null;
@@ -59,7 +60,7 @@ function WalletStateProvider({ children }: { children: React.ReactNode }) {
 
     const fetchBalance = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_STACKS_API_URL || 'https://api.testnet.hiro.so';
+        const apiUrl = getStacksApiUrl();
         const response = await fetch(`${apiUrl}/extended/v1/address/${address}/balances`);
         const data = (await response.json()) as {
           stx?: {
@@ -112,7 +113,7 @@ function WalletStateProvider({ children }: { children: React.ReactNode }) {
       try {
         await connectWallet({
           forceWalletSelect: true,
-          network: process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet',
+          network: getNetwork(),
         });
 
         refreshWalletState();
