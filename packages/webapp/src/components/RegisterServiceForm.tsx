@@ -1,5 +1,6 @@
-import { getTransactionUrl } from '@/lib/stacks';
 'use client';
+
+import { getTransactionUrl } from '@/lib/stacks';
 
 import { useState } from 'react';
 import { Loader2, CheckCircle2, AlertCircle, ExternalLink } from 'lucide-react';
