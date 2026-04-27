@@ -29,9 +29,6 @@ type TimelinePoint = {
   disputes: number;
 };
 
-/**
- * Executes logic associated with service detail page.
- */
 export default function ServiceDetailPage() {
   const params = useParams();
   const principal = params.principal as string;
