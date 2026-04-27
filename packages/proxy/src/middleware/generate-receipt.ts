@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { getSbtcContractId } from '../config/token-contracts';
 import { v4 as uuidv4 } from 'uuid';
 import { computeDeliverableHash } from '../crypto/deliverable-hash';
 import { signReceipt } from '../crypto/signatures';
@@ -87,7 +88,7 @@ export async function generateReceiptMiddleware(
           metadata: {
             endpoint: `${req.method} ${req.path}`,
             price_sats: String(verifiedPayment.amount),
-            token_contract: 'SP2ASJZHEKV2MBDYWS1HT63WXYXWX49NF.sbtc-token',
+            token_contract: getSbtcContractId(),
           },
         };
 
