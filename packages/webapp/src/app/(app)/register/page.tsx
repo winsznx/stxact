@@ -1,8 +1,5 @@
 import { RegisterServiceForm } from '@/components/RegisterServiceForm';
 
-/**
- * Executes logic associated with register page.
- */
 export default function RegisterPage() {
     return (
         <div className="min-h-screen bg-background">
