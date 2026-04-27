@@ -56,3 +56,7 @@ export function getStacksNetwork(): StacksNetwork {
 export function resetNetworkCache(): void {
   cachedNetwork = null;
 }
+
+export function networkLabel(): string {
+  return getNetworkId().toUpperCase();
+}
