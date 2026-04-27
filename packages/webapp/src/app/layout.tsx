@@ -12,9 +12,6 @@ export const metadata: Metadata = {
   },
 };
 
-/**
- * Executes logic associated with root layout.
- */
 export default function RootLayout({
   children,
 }: Readonly<{
