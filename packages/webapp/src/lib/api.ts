@@ -1,8 +1,5 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001';
 
-/**
- * Core definition structure for Receipt.
- */
 export interface Receipt {
   receipt_id: string;
   request_hash: string;
@@ -21,18 +18,12 @@ export interface Receipt {
   signature: string;
 }
 
-/**
- * Core definition structure for Token.
- */
 export interface Token {
   symbol: string;
   token_contract?: string;
   network?: string;
 }
 
-/**
- * Core definition structure for Service.
- */
 export interface Service {
   service_id?: string;
   principal: string;
@@ -60,9 +51,6 @@ export interface Service {
   };
 }
 
-/**
- * Core definition structure for Dispute.
- */
 export interface Dispute {
   dispute_id: string;
   receipt_id: string;
@@ -81,9 +69,6 @@ export interface Dispute {
   tx_hash?: string;
 }
 
-/**
- * Core definition structure for Reputation.
- */
 export interface Reputation {
   principal: string;
   score: number;
@@ -93,9 +78,6 @@ export interface Reputation {
   on_chain: boolean;
 }
 
-/**
- * Core definition structure for Pagination.
- */
 export interface Pagination {
   total: number;
   limit: number;
@@ -103,9 +85,6 @@ export interface Pagination {
   has_more?: boolean;
 }
 
-/**
- * Core definition structure for VerificationChecks.
- */
 export interface VerificationChecks {
   signature_valid: boolean;
   principal_match?: boolean;
@@ -113,9 +92,6 @@ export interface VerificationChecks {
   bns_verified?: boolean;
 }
 
-/**
- * Core definition structure for RegisterServicePayload.
- */
 export interface RegisterServicePayload {
   endpoint_url: string;
   policy_hash: string;
@@ -129,9 +105,6 @@ export interface RegisterServicePayload {
   timestamp: number;
 }
 
-/**
- * Core definition structure for RefundAuthorizationPayload.
- */
 export interface RefundAuthorizationPayload {
   dispute_id: string;
   receipt_id: string;
@@ -211,9 +184,6 @@ interface UpdateDisputeData {
   resolution_notes?: string;
 }
 
-/**
- * Exported constant for api.
- */
 export const api = {
   getReceipts: (params?: GetReceiptsParams) => {
     const query = new URLSearchParams();
