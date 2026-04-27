@@ -3,9 +3,6 @@
 import { useEffect } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 
-/**
- * Executes logic associated with seller error.
- */
 export default function SellerError({
   error,
   reset,
