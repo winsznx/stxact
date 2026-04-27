@@ -1,4 +1,5 @@
 import { callReadOnlyFunction, bufferCV, ClarityType } from '@stacks/transactions';
+import { getNetworkId } from '../config/network';
 import { StacksNetwork, StacksTestnet, StacksMainnet } from '@stacks/network';
 import { getBNSCacheEntry, setBNSCacheEntry, invalidateBNSCache } from '../storage/cache';
 import { logger } from '../config/logger';
@@ -16,7 +17,7 @@ const BNS_CONTRACT_ADDRESS = 'SP000000000000000000002Q6VF78';
 const BNS_CONTRACT_NAME = 'bns';
 
 function getStacksNetwork(): StacksNetwork {
-  const network = process.env.STACKS_NETWORK || 'testnet';
+  const network = getNetworkId();
   return network === 'mainnet' ? new StacksMainnet() : new StacksTestnet();
 }
 
