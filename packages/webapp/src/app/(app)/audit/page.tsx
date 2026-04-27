@@ -1,5 +1,7 @@
 'use client';
 
+import { getNetwork } from '@/lib/network';
+
 import { useMemo, useState } from 'react';
 import {
   Download,
@@ -28,7 +30,7 @@ type VerificationSummary = {
  * Executes logic associated with audit page.
  */
 export default function AuditPage() {
-  const chain = process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
+  const chain = getNetwork();
   const { address: walletAddress } = useWallet();
   const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d' | 'all'>('30d');
   const [exportFormat, setExportFormat] = useState<'csv' | 'json' | 'bundle'>('csv');
