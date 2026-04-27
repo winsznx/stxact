@@ -3,6 +3,7 @@ import { verifyReceipt } from '../crypto/signatures';
 import { Receipt } from '../crypto/receipt-canonical';
 import { getPool } from '../storage/db';
 import { getStacksNetwork } from '../config/stacks';
+import { getStacksApiUrl } from '../config/network';
 import { logger } from '../config/logger';
 import { generateReceiptCSV } from '../utils/csv-formatter';
 
@@ -341,7 +342,7 @@ router.get('/:receipt_id/csv', async (req: Request, res: Response) => {
 async function verifyPaymentTransaction(paymentTxid: string): Promise<boolean> {
   try {
     const axios = await import('axios');
-    const stacksApiUrl = process.env.STACKS_API_URL || 'https://api.testnet.hiro.so';
+    const stacksApiUrl = getStacksApiUrl();
     const txid = paymentTxid.startsWith('0x') ? paymentTxid : `0x${paymentTxid}`;
 
     const response = await axios.default.get(
