@@ -1,5 +1,6 @@
-import { getNetwork } from '@/lib/network';
 'use client';
+
+import { getNetwork } from '@/lib/network';
 
 import { useState } from 'react';
 import Link from 'next/link';
