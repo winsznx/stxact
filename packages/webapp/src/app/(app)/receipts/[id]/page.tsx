@@ -12,9 +12,6 @@ import { GlassPanel } from '@/components/GlassCard';
 import { VerificationRow } from '@/components/VerificationRow';
 import { EmptyState } from '@/components/EmptyState';
 
-/**
- * Executes logic associated with receipt detail page.
- */
 export default function ReceiptDetailPage() {
   const params = useParams();
   const receiptId = params.id as string;
