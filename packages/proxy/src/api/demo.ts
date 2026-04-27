@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { getNetworkId } from '../config/network';
 import { createX402PaymentGate } from '../middleware/x402-payment-gate';
 import { generateReceiptMiddleware } from '../middleware/generate-receipt';
 import { logger } from '../config/logger';
@@ -27,7 +28,7 @@ const router = Router();
 const paymentGate = createX402PaymentGate({
   amountSTX: 0.1, // 0.1 STX required
   payTo: process.env.SERVICE_PRINCIPAL!,
-  network: (process.env.STACKS_NETWORK || 'testnet') as 'mainnet' | 'testnet',
+  network: getNetworkId() as 'mainnet' | 'testnet',
   facilitatorUrl: process.env.X402_FACILITATOR_URL || 'https://facilitator.stacksx402.com',
   description: 'Demo premium data endpoint',
 });
