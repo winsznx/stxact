@@ -10,9 +10,6 @@ import { useWallet } from '@/hooks/useWallet';
 type ViewMode = 'buyer' | 'seller';
 type StatusFilter = 'all' | 'open' | 'resolved' | 'expired';
 
-/**
- * Executes logic associated with disputes page.
- */
 export default function DisputesPage() {
   const { address: walletAddress } = useWallet();
   const [viewMode, setViewMode] = useState<ViewMode>('buyer');
