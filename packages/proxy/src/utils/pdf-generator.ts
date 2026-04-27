@@ -1,4 +1,5 @@
 import PDFDocument from 'pdfkit';
+import { getNetworkId } from '../config/network';
 import QRCode from 'qrcode';
 
 interface ReceiptMetadata {
@@ -213,7 +214,7 @@ function buildCardRows(receipt: Receipt): {
   const endpoint = metadata.endpoint || 'N/A';
   const asset = metadata.asset || 'STX';
   const timestamp = formatTimestamp(receipt.timestamp);
-  const network = (process.env.STACKS_NETWORK || 'testnet').toUpperCase();
+  const network = getNetworkId().toUpperCase();
 
   return {
     paymentRows: [
