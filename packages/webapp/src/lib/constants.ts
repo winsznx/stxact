@@ -12,7 +12,9 @@ export const PAGINATION_DEFAULTS = { limit: 20, offset: 0 } as const;
 
 export const STACKS_EXPLORER_BASE = 'https://explorer.hiro.so';
 
-export const STACKS_ADDRESS_REGEX = /^S[PM][A-Z0-9]{38,39}$/;
+export const STACKS_ADDRESS_REGEX = /^S[PMTN][A-Z0-9]{38,39}$/;
+export const STACKS_MAINNET_ADDRESS_REGEX = /^S[PM][A-Z0-9]{38,39}$/;
+export const STACKS_TESTNET_ADDRESS_REGEX = /^S[TN][A-Z0-9]{38,39}$/;
 
 export const SERVICE_CATEGORIES = [
   'data-api', 'ai-compute', 'storage', 'analytics', 'oracle', 'yield', 'other',
