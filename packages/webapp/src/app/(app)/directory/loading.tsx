@@ -1,8 +1,5 @@
 import { SkeletonCard } from '@/components/SkeletonCard';
 
-/**
- * Executes logic associated with directory loading.
- */
 export default function DirectoryLoading() {
   return (
     <div className="min-h-screen bg-background">
