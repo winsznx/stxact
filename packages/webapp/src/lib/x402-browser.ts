@@ -121,9 +121,6 @@ export function createBrowserPaymentSignature(payload: X402BrowserRetryPayload):
   return encodeBase64Json(payload);
 }
 
-/**
- * Executes logic associated with decode payment response header.
- */
 export function decodePaymentResponseHeader(headerValue: string | null): X402PaymentResponse | null {
   if (!headerValue) {
     return null;
@@ -132,9 +129,6 @@ export function decodePaymentResponseHeader(headerValue: string | null): X402Pay
   return decodeBase64Json<X402PaymentResponse>(headerValue);
 }
 
-/**
- * Executes logic associated with decode receipt header.
- */
 export function decodeReceiptHeader(headerValue: string | null): Receipt | null {
   if (!headerValue) {
     return null;
@@ -143,9 +137,6 @@ export function decodeReceiptHeader(headerValue: string | null): Receipt | null 
   return decodeBase64Json<Receipt>(headerValue);
 }
 
-/**
- * Executes logic associated with format micro stx.
- */
 export function formatMicroStx(amountMicroStx: string): string {
   const microStxUnit = BigInt(1_000_000);
   const microStx = BigInt(amountMicroStx);
@@ -154,9 +145,6 @@ export function formatMicroStx(amountMicroStx: string): string {
   return fraction ? `${whole.toString()}.${fraction} STX` : `${whole.toString()} STX`;
 }
 
-/**
- * Executes logic associated with store latest browser flow.
- */
 export function storeLatestBrowserFlow(receipt: Receipt, artifactText: string) {
   if (typeof window === 'undefined') {
     return;
@@ -166,9 +154,6 @@ export function storeLatestBrowserFlow(receipt: Receipt, artifactText: string) {
   window.sessionStorage.setItem(LATEST_ARTIFACT_STORAGE_KEY, artifactText);
 }
 
-/**
- * Executes logic associated with read latest browser flow.
- */
 export function readLatestBrowserFlow() {
   if (typeof window === 'undefined') {
     return { receipt: null as Receipt | null, artifactText: null as string | null };
