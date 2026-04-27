@@ -26,9 +26,6 @@ type VerificationSummary = {
   bns_verified?: boolean;
 };
 
-/**
- * Executes logic associated with audit page.
- */
 export default function AuditPage() {
   const chain = getNetwork();
   const { address: walletAddress } = useWallet();
