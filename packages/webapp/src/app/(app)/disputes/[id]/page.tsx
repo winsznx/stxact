@@ -1,5 +1,7 @@
 'use client';
 
+import { getTransactionUrl } from '@/lib/stacks';
+
 import { useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, AlertTriangle, CheckCircle2, Circle, ExternalLink } from 'lucide-react';
@@ -113,8 +115,7 @@ export default function DisputeDetailPage() {
     );
   }
 
-  const chain = process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
-  const resolutionWindowSeconds = Number(process.env.NEXT_PUBLIC_RESOLUTION_WINDOW_SECONDS || 604800);
+    const resolutionWindowSeconds = Number(process.env.NEXT_PUBLIC_RESOLUTION_WINDOW_SECONDS || 604800);
   const isExpired =
     (dispute.status === 'open' || dispute.status === 'acknowledged') &&
     Math.floor(Date.now() / 1000) - dispute.created_at > resolutionWindowSeconds;
@@ -217,7 +218,7 @@ export default function DisputeDetailPage() {
                     <dt className="text-foreground-subtle">Refund TX</dt>
                     <dd>
                       <a
-                        href={`https://explorer.hiro.so/txid/${dispute.refund_txid}?chain=${chain}`}
+                        href={getTransactionUrl(dispute.refund_txid)}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="font-mono text-accent hover:underline"
