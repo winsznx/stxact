@@ -3,9 +3,6 @@
 import { useEffect } from 'react';
 import { AlertTriangle } from 'lucide-react';
 
-/**
- * Executes logic associated with global error.
- */
 export default function GlobalError({
   error,
   reset,
