@@ -147,9 +147,6 @@ async function retryPaidRequest(
   throw new Error('Paid retry never settled into a confirmed receipt');
 }
 
-/**
- * Executes logic associated with browser flow page.
- */
 export default function BrowserFlowPage() {
   const { address, isConnected, isConnecting, connect } = useWallet();
   const [selectedFlow, setSelectedFlow] = useState<DemoFlowKey>('premium-data');
