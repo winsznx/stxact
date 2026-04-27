@@ -2,9 +2,6 @@ import { Navbar } from "@/components/Navbar";
 import { Sidebar } from "@/components/Sidebar";
 import { appNavbarLinks } from "@/lib/navigation";
 
-/**
- * Executes logic associated with dashboard layout.
- */
 export default function DashboardLayout({
     children,
 }: {
