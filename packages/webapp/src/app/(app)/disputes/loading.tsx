@@ -1,8 +1,5 @@
 import { SkeletonTable, SkeletonStat } from '@/components/SkeletonCard';
 
-/**
- * Executes logic associated with disputes loading.
- */
 export default function DisputesLoading() {
   return (
     <div className="min-h-screen bg-background">
