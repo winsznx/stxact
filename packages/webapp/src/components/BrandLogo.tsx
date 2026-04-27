@@ -19,9 +19,6 @@ export interface BrandLogoProps {
   showLabel?: boolean;
 }
 
-/**
- * Executes logic associated with brand glyph.
- */
 export function BrandGlyph({
   className,
   style,
@@ -58,9 +55,6 @@ export function BrandGlyph({
   );
 }
 
-/**
- * Executes logic associated with brand logo.
- */
 export function BrandLogo({
   className,
   iconClassName,
