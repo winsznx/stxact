@@ -1,3 +1,4 @@
+import { getTransactionUrl } from '@/lib/stacks';
 'use client';
 
 import { useState } from 'react';
@@ -148,8 +149,7 @@ export function RegisterServiceForm() {
   }
 
   if (state === 'success') {
-    const chain = process.env.NEXT_PUBLIC_STACKS_NETWORK === 'mainnet' ? 'mainnet' : 'testnet';
-    return (
+        return (
       <div className="glass rounded-none p-8">
         <div className="flex flex-col items-center space-y-4">
           <CheckCircle2 className="h-16 w-16 text-success" />
@@ -162,7 +162,7 @@ export function RegisterServiceForm() {
 
           {txId && (
             <a
-              href={`https://explorer.hiro.so/txid/${txId}?chain=${chain}`}
+              href={getTransactionUrl(txId)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-sm text-accent hover:underline"
